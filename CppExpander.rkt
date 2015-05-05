@@ -34,6 +34,8 @@
             
        
 
+; Grid > Block > Warp > Thread-Loop > Unroll
+; 
 (define skeletons-table 
   (hash 'Loop1d 
         (lambda (skel) (syntax-case skel (@ Loop1d)
@@ -41,15 +43,21 @@
                           (let* ((params (syntax->datum #'(params ...)))
                                  (num-params (length params)))
                             (cond
-                              ((> 2 num-params) (raise-argument-error 'params "at least 2 values required" params))
-                              ((< 4 num-params) (raise-argument-error 'params "at most 4 values allowed" params))
-                              (else (let ((itr-var (car (car params)))
-                                 (lower-bound (if (eq? 2 num-params) 0 (car (cadr params))))
-                                 (upper-bound (car (if (eq? 2 num-params) (cadr params) (caddr params))))
-                                 (stride (if (eq? 4 num-params) (car (cadddr params)) 1)))
+                              ((> 2 num-params) (raise-argument-error 'params "at least 2 arguments required" params))
+                              ((< 4 num-params) (raise-argument-error 'params "at least 4 arguments required" params))
+                              (else (let (
+                                           (itr-var (car (car params)))
+                                           (lower-bound (if (eq? 2 num-params) 0 (car (cadr params))))
+                                           (upper-bound (car (if (eq? 2 num-params) (cadr params) (caddr params))))
+                                           (stride (if (eq? 4 num-params) (car (cadddr params)) 1)))
                             (lambda (ext-params)
-                              (if (eq? 1 (length ext-params))
-                            (let ((unroll-factor (car ext-params)))
+                              (let ((num-ext-params (length ext-params)))
+                              (if (eq? 10 num-ext-params)
+                            (let*-values (
+                                          ((split-vars split-bounds) (split-at (drop ext-params (- num-ext-params 10)) 5))
+                                          ((index-vars) (map car split-vars))
+                                          ((index-bounds) (map car split-bounds)))
+                                          ;(unroll-factor (car ext-params)))
                               (letrec ((unroller (lambda (unroll-factor itr-var stride body) 
                                                     (if (eq? 1 unroll-factor) 
                                                         (with-syntax ((itr-var itr-var) 
@@ -66,7 +74,7 @@
                                             (upper-bound upper-bound)
                                             (stride stride)
                                             (body (unroller unroll-factor itr-var stride #'body))) #'(for ((def (() int itr-var = lower-bound)) (< itr-var upper-bound) ()) body))))
-                            (raise-argument-error 'ext-params "1 value required" ext-params)))))))]))))
+                            (raise-argument-error 'ext-params "10 arguments required" ext-params))))))))]))))
 
 
 (define expand-stmt (lambda (stmt) 
