@@ -8,7 +8,9 @@
        #'(let ((names (expand-stmt names)) ...) body)]))
 
 (define simple-external-params-table
-  (hash '(Loop1d (test-loop)) '(4)))
+  (hash 
+   '(Loop1d (test-loop)) '((4 4) (1 1) (2 2) (3 3) (4 4) (5 5) (6 6) (7 7) (8 8) (9 9)) 
+   '(I ()) '()))
 
 #;(define-syntax (define-skeleton stx)
   (syntax-case stx ()
@@ -32,13 +34,22 @@
             (ExtPHandler ))
        (define-skeleton SkName SrcPHandler ExtPHandler Impl))]))
             
-       
+
+(define lookup-skeleton
+  (lambda (table-list key)
+    (begin
+      ;(print (list "looking up "  key " in " table-list)) (newline)
+      (match table-list 
+        [(cons h t) (hash-ref h key (lambda () (lookup-skeleton t)))]
+        [(list ) #f]))))
+
+(struct skeleton-expansion (body table))
 
 ; Grid > Block > Warp > Thread-Loop > Unroll
 ; 
-(define skeletons-table 
-  (hash 'Loop1d 
-        (lambda (skel) (syntax-case skel (@ Loop1d)
+(define init-skeletons-table 
+  (list (hash 'Loop1d 
+        (lambda (skel table-here) (syntax-case skel (@ Loop1d)
                          [(@ Loop1d (name ...) (params ...) body)
                           (let* ((params (syntax->datum #'(params ...)))
                                  (num-params (length params)))
@@ -69,50 +80,80 @@
                                                                       (body body) 
                                                                       (more-bodies (unroller (- unroll-factor 1) itr-var stride body))) 
                                                           #'(begin body (+= itr-var stride) more-bodies))))))
-                              (with-syntax ((itr-var itr-var)
+                                (skeleton-expansion
+                                 (with-syntax ((itr-var itr-var)
                                             (lower-bound lower-bound)
                                             (upper-bound upper-bound)
                                             (stride stride)
-                                            (body (unroller unroll-factor itr-var stride #'body))) #'(for ((def (() int itr-var = lower-bound)) (< itr-var upper-bound) ()) body))))
-                            (raise-argument-error 'ext-params "10 arguments required" ext-params))))))))]))))
+                                            (body #'body #;(unroller unroll-factor itr-var stride #'body))) #'(for ((def (() int itr-var = lower-bound)) (< itr-var upper-bound) ()) body))
+                                 (cons (hash 'I (lambda (skel table-here) (syntax-case skel (@ I)
+                                                                            [(@ I () () ()) 
+                                                                             (lambda (ext-params) 
+                                                                               (skeleton-expansion
+                                                                                (with-syntax ((itr-var itr-var)) #'itr-var)
+                                                                                table-here))]))
+                                             'N (lambda (skel table-here) (syntax-case skel (@ I)
+                                                                            [(@ N () () ()) 
+                                                                             (lambda (ext-params) 
+                                                                               (skeleton-expansion 
+                                                                                (with-syntax ((upper-bound upper-bound)) #'upper-bound)
+                                                                                table-here))]))) 
+                                       table-here))))
+                            (raise-argument-error 'ext-params "10 arguments required" ext-params))))))))])))))
 
 
-(define expand-stmt (lambda (stmt) 
+(define expand-stmt (lambda (stmt skels) 
                       (syntax-case stmt (if else for while begin call def @) 
                         [(@ SkelKind (name ...) (params ...) body) 
                          (begin 
                            #;(print "expanding skeleton")
                            #;(newline)
-                           (((hash-ref skeletons-table (syntax->datum #'SkelKind)) stmt)
-                          (hash-ref simple-external-params-table (list (syntax->datum #'SkelKind) (syntax->datum #'(name ...))))))]
+                           (let ((expansion (((lookup-skeleton skels (syntax->datum #'SkelKind)) stmt skels) 
+                                             (hash-ref simple-external-params-table (list (syntax->datum #'SkelKind) (syntax->datum #'(name ...)))))))
+                             (begin
+                               ;(print (list "re-expanding with " (skeleton-expansion-body expansion) (skeleton-expansion-table expansion))) (newline)
+                             (expand-stmt (skeleton-expansion-body expansion) (skeleton-expansion-table expansion)))))] ; The expansion process may have introduced new macros, so expand those too
                         [(while (cond ...) body) (with-syntax 
-                                                 ((body (expand-stmt #'body)))
+                                                 ((body (expand-stmt #'body skels)))
                                                #'(while (cond ...) body))]
+                        [(for ((init ...) (cond ...) (update ...)) body) (with-syntax
+                                                                             ((body (expand-stmt #'body skels)))
+                                                                           #'(for ((init ...) (cond ...) (update ...)) body))]
                         [(if (cond ...) body) (with-syntax  
-                                              ((body (expand-stmt #'body))) 
+                                              ((body (expand-stmt #'body skels))) 
                                             #'(if (cond ...) body))]
                         [(if (cond ...) body else else-body) (with-syntax 
-                                              ((body (expand-stmt #'body))
-                                               (else-body (expand-stmt #'else-body))) 
+                                              ((body (expand-stmt #'body skels))
+                                               (else-body (expand-stmt #'else-body skels))) 
                                             #'(if (cond ...) body else else-body))]
                         [(begin stmts ... ) 
                          (begin 
                            #;(print "expanding begin") 
                            #;(newline ) 
-                           (let ((stmts (map expand-stmt (syntax->list #'(stmts ...)))))
+                           (let ((stmts (map (curryr expand-stmt skels) (syntax->list #'(stmts ...)))))
                              (datum->syntax stmt (cons 'begin stmts))))]
-                        [(def defs ...) (expand-decl stmt)]
+                        [(call func args ... ) 
+                         (begin 
+                           #;(print "expanding call") 
+                           #;(newline ) 
+                           (let ((args (map (curryr expand-stmt skels) (syntax->list #'(args ...)))))
+                             (with-syntax ((func (expand-stmt #'func skels)))
+                               #`(call func #,@(datum->syntax stmt args)))))]
+                        [(def defs ...) (expand-decl stmt skels)]
                         [(expr ...) (begin
                                       #;(print "no match for ") 
                                       #;(newline)
                                       #;(print stmt)
                                       #;(newline)
-                                      stmt)]))) 
+                                      (let ((expr-components 
+                                             (map (curryr expand-stmt skels) (syntax->list #'(expr ...)))))
+                                        (datum->syntax stmt expr-components)))]
+                        [any #'any]))) 
 
-(define expand-decl (lambda (decl)
+(define expand-decl (lambda (decl skels)
                       (syntax-case decl (def defun)
                         [(defun (storage ...) ret-type name (args ...) body)
-                         (with-syntax ((body (expand-stmt #'body)))
+                         (with-syntax ((body (expand-stmt #'body skels)))
                            #'(defun (storage ...) ret-type name (args ...) body))]
                         [(def ((storage ...) type name init ...) (next-name next-init ...) ...) decl])))
 
@@ -212,10 +253,10 @@
             (begin
             (if (== 0 (% argc 4))
                 (@ Loop1d (test-loop) ((i) (0) (argc)) 
-                   (call printf "%s\\n" (* ((+ argv i)))))
+                   (call printf "%s\\n" (* ((+ argv (@ I () () ()))))))
                 else
                 (call printf "args not a multiple of 4: %d\\n" argc))
-            (call printf "done\\n"))))))
+            (call printf "done\\n"))) init-skeletons-table)))
   (begin
     (print expanded-code)
     (newline)
