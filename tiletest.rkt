@@ -1,6 +1,14 @@
 #lang racket
 
+(require math/array)
+
+(provide cuda-loop1d)
+
 (struct tile (counter upper-bound body-gen))
+
+(define make-default-tile
+  (lambda (index ub)
+    (tile index ub (lambda (body) body))))
 
 (define make-for-tile
   (lambda (index ub)
@@ -46,15 +54,50 @@
      (lambda (body) 
        ((tile-body-gen outer) ((tile-body-gen inner) body))))))
 
-(let ((unroll-tile (make-unroll-tile #'j #'4))
+(define compose-tile-permutation ; accepts in order: outer -> inner
+  (lambda (tile-list tile-permutation)
+    (letrec ((tile-array (list->array tile-list))
+             (permuted-array (array-slice-ref tile-array (list (reverse tile-permutation)))) ; tricky business: reversing the permuation allows us to foldl instead of foldr
+             (permuted-list (array->list permuted-array)))
+      (foldl compose-tiles (car permuted-list) (cdr permuted-list)))))
+
+(define make-permutation-macro-from-tile-constructors
+  (lambda (tile-constructors)
+    (lambda (body idxs bounds permutation)
+    (let* ((tiles (map (lambda (tf i b) (tf i b)) tile-constructors idxs bounds))
+           (loop-structure (compose-tile-permutation tiles permutation)))
+      (values (tile-counter loop-structure) (tile-upper-bound loop-structure) ((tile-body-gen loop-structure) (wrap-in-bounds-check body)))))))
+
+(define cuda-loop1d (make-permutation-macro-from-tile-constructors (list make-default-tile make-default-tile make-default-tile make-for-tile make-unroll-tile)))
+(define cuda-loop1d-nowarp (make-permutation-macro-from-tile-constructors (list make-default-tile make-default-tile make-for-tile make-unroll-tile)))
+           
+; Uncomment for a simple test that everything is working as expected
+#;(let ((unroll-tile (make-unroll-tile #'j #'4))
       (for-tile (make-for-tile #'i #'4))
       (thread-tile (tile #'(threadIdx . x) #'(blockDim . x) (lambda (body) body)))
       (block-tile (tile #'(blockIdx . x) #'(gridDim . x) (lambda (body) body))))
-    (let ((new-tile (compose-tiles block-tile (compose-tiles thread-tile (compose-tiles for-tile unroll-tile))))) 
+    (let-values (((new-tile) (compose-tiles block-tile (compose-tiles thread-tile (compose-tiles for-tile unroll-tile))))
+          ((new-tile2) (compose-tile-permutation (list block-tile thread-tile for-tile unroll-tile) '(0 1 2 3)))
+          ((counter3 bounds3 body3) (cuda-loop1d-nowarp 
+                                     #'(= (* ((+ testA @I))) (* ((+ testB @I)))) 
+                                     (list #'(blockIdx . x) #'(threadIdx . x) #'i #'j) (list #'(gridDim . x) #'(blockDim . x) #'4 #'4) 
+                                     '(0 1 2 3)))) 
       (begin 
         (print (tile-counter new-tile)) 
         (newline) 
+        (print (tile-counter new-tile2)) 
+        (newline) 
+        (print counter3) 
+        (newline) 
         (print (tile-upper-bound new-tile)) 
         (newline) 
+        (print (tile-upper-bound new-tile2)) 
+        (newline) 
+        (print bounds3) 
+        (newline) 
         (print ((tile-body-gen new-tile) (wrap-in-bounds-check #'(= (* ((+ testA @I))) (* ((+ testB @I)))))))
+        (newline)
+        (print ((tile-body-gen new-tile2) (wrap-in-bounds-check #'(= (* ((+ testA @I))) (* ((+ testB @I)))))))
+        (newline)
+        (print body3)
         (newline))))
