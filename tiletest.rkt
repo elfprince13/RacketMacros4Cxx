@@ -13,6 +13,22 @@
                      (body body))
          #'(for ((def (() int index = 0)) (< index ub) (++ index)) body))))))
 
+(define make-unroll-tile (lambda (itr-var unroll-factor)                 
+                   (tile
+                    itr-var
+                    unroll-factor
+                    (lambda (body)
+                      (letrec ((unroller (lambda (body factor-here tail)
+                        (if (eq? 0 factor-here)
+                            #`(begin #,@tail)
+                            (unroller body (- factor-here 1)
+                            (with-syntax ((itr-var itr-var) 
+                                          (itr-val factor-here) 
+                                          (body body)) 
+                              #`(#,@#'((begin (= itr-var itr-val) body)) #,@tail))))))) 
+                        (unroller body (syntax->datum unroll-factor) #'()))))))
+
+
 (define wrap-in-bounds-check
   (lambda (body)
     (with-syntax ((body body)) #'(if (@I < @N) body))))
@@ -30,10 +46,11 @@
      (lambda (body) 
        ((tile-body-gen outer) ((tile-body-gen inner) body))))))
 
-(let ((for-tile (make-for-tile #'i #'4))
+(let ((unroll-tile (make-unroll-tile #'j #'4))
+      (for-tile (make-for-tile #'i #'4))
       (thread-tile (tile #'(threadIdx . x) #'(blockDim . x) (lambda (body) body)))
       (block-tile (tile #'(blockIdx . x) #'(gridDim . x) (lambda (body) body))))
-    (let ((new-tile (compose-tiles block-tile (compose-tiles thread-tile for-tile)))) 
+    (let ((new-tile (compose-tiles block-tile (compose-tiles thread-tile (compose-tiles for-tile unroll-tile))))) 
       (begin 
         (print (tile-counter new-tile)) 
         (newline) 
