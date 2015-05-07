@@ -57,7 +57,7 @@
 (define compose-tile-permutation ; accepts in order: outer -> inner
   (lambda (tile-list tile-permutation)
     (letrec ((tile-array (list->array tile-list))
-             (permuted-array (array-slice-ref tile-array (list (reverse tile-permutation)))) ; tricky business: reversing the permuation allows us to foldl instead of foldr
+             (permuted-array (array-slice-ref tile-array (list (reverse tile-permutation)))) ; tricky business: reversing the permutation allows us to foldl instead of foldr
              (permuted-list (array->list permuted-array)))
       (foldl compose-tiles (car permuted-list) (cdr permuted-list)))))
 
