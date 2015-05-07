@@ -10,7 +10,7 @@
 
 (define simple-external-params-table
   (hash 
-   '(Loop1d (test-loop)) '((4 4) (1 1) (2 2) (3 3) (4 4) (5 5) (6 6) (7 7) (8 8) (9 9)) 
+   '(Loop1d (test-loop)) (list (list #'(blockIdx . x)) (list #'((/ (threadIdx . x) 32))) (list #'((& (threadIdx . x) 32))) (list #'i) (list #'j) (list #'(gridDim . x)) (list #'((/ (blockDim . x) 32))) (list #'32) (list #'1) (list #'4)) 
    '(I ()) '()))
 
 #;(define-syntax (define-skeleton stx)
@@ -65,42 +65,28 @@
                             (lambda (ext-params)
                               (let ((num-ext-params (length ext-params)))
                               (if (eq? 10 num-ext-params)
-                            (let*-values (
-                                          ((split-vars split-bounds) (split-at (drop ext-params (- num-ext-params 10)) 5))
-                                          ((index-vars) (map car split-vars))
-                                          ((index-bounds) (map car split-bounds)))
-                                          ;(unroll-factor (car ext-params)))
-                              (letrec ((unroller (lambda (unroll-factor itr-var stride body) 
-                                                    (if (eq? 1 unroll-factor) 
-                                                        (with-syntax ((itr-var itr-var) 
-                                                                      (stride stride) 
-                                                                      (body body)) 
-                                                          #'(begin body (+= itr-var stride)))
-                                                        (with-syntax ((itr-var itr-var) 
-                                                                      (stride stride) 
-                                                                      (body body) 
-                                                                      (more-bodies (unroller (- unroll-factor 1) itr-var stride body))) 
-                                                          #'(begin body (+= itr-var stride) more-bodies))))))
-                                (skeleton-expansion
-                                 (with-syntax ((itr-var itr-var)
-                                            (lower-bound lower-bound)
-                                            (upper-bound upper-bound)
-                                            (stride stride)
-                                            (body #'body #;(unroller unroll-factor itr-var stride #'body))) #'(for ((def (() int itr-var = lower-bound)) (< itr-var upper-bound) ()) body))
-                                 (cons (hash 'I (lambda (skel table-here) (syntax-case skel (@ I)
-                                                                            [(@ I () () ()) 
-                                                                             (lambda (ext-params) 
-                                                                               (skeleton-expansion
-                                                                                (with-syntax ((itr-var itr-var)) #'itr-var)
-                                                                                table-here))]))
-                                             'N (lambda (skel table-here) (syntax-case skel (@ I)
-                                                                            [(@ N () () ()) 
-                                                                             (lambda (ext-params) 
-                                                                               (skeleton-expansion 
-                                                                                (with-syntax ((upper-bound upper-bound)) #'upper-bound)
-                                                                                table-here))]))) 
-                                       table-here))))
-                            (raise-argument-error 'ext-params "10 arguments required" ext-params))))))))])))))
+                                  (let*-values (
+                                                ((split-vars split-bounds) (split-at (drop ext-params (- num-ext-params 10)) 5))
+                                                ((index-vars) (map car split-vars))
+                                                ((index-bounds) (map car split-bounds)))
+                                    (let-values
+                                        (((counter-exp geom-exp loop-code) (cuda-loop1d #'body index-vars index-bounds (list 0 1 2 3 4))))
+                                      (skeleton-expansion
+                                       loop-code
+                                       (cons (hash 'I (lambda (skel table-here) (syntax-case skel (@ I)
+                                                                                  [(@ I () () ()) 
+                                                                                   (lambda (ext-params) 
+                                                                                     (skeleton-expansion
+                                                                                      (with-syntax ((itr-var counter-exp)) #'itr-var)
+                                                                                      table-here))]))
+                                                   'N (lambda (skel table-here) (syntax-case skel (@ I)
+                                                                                  [(@ N () () ()) 
+                                                                                   (lambda (ext-params) 
+                                                                                     (skeleton-expansion 
+                                                                                      (with-syntax ((upper-bound upper-bound)) #'upper-bound)
+                                                                                      table-here))]))) 
+                                             table-here))))
+                                  (raise-argument-error 'ext-params "10 arguments required" ext-params))))))))])))))
 
 
 (define expand-stmt (lambda (stmt skels) 
@@ -171,6 +157,7 @@
                                         (string-append (make-cpp-expr #'operator) (make-cpp-expr #'arg1))]
                                        [() ""]
                                        [(name-or-literal) (make-cpp-expr #'name-or-literal)]
+                                       [(struct . member) (string-append "(" (make-cpp-expr #'struct) "." (make-cpp-expr #'member) ")")]
                                        [name-or-literal 
                                         (let ((name-or-literal (syntax->datum #'name-or-literal)))
                                           (cond [(symbol? name-or-literal)
@@ -202,7 +189,7 @@
                            #;(newline)
                            (string-append 
                             "{\n" (string-join (map make-cpp-stmt (syntax->list #'(stmts ...))) "") "}\n"))]
-                        [(def defs ...) (make-cpp-decl stmt)]
+                        [(def defs ...) (string-append (make-cpp-decl stmt) ";\n")]
                         [(expr ...) (begin 
                                       #;(print "no match found for ") 
                                       #;(newline) 

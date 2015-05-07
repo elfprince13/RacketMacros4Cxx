@@ -33,13 +33,13 @@
                             (with-syntax ((itr-var itr-var) 
                                           (itr-val factor-here) 
                                           (body body)) 
-                              #`(#,@#'((begin (= itr-var itr-val) body)) #,@tail))))))) 
+                              #`(#,@#'((begin (def (() int itr-var = itr-val)) body)) #,@tail))))))) 
                         (unroller body (syntax->datum unroll-factor) #'()))))))
 
 
 (define wrap-in-bounds-check
   (lambda (body)
-    (with-syntax ((body body)) #'(if (@I < @N) body))))
+    (with-syntax ((body body)) #'(if (< @I @N) body))))
 
 (define compose-tiles 
   (lambda (outer inner)
@@ -47,10 +47,10 @@
      (with-syntax ((outer-counter (tile-counter outer))
                   (inner-counter (tile-counter inner))
                   (inner-bound (tile-upper-bound inner)))
-                 #'(+ (* outer-counter inner-bound) inner-counter))
+                 #'((+ (* outer-counter inner-bound) inner-counter)))
      (with-syntax ((outer-bound (tile-upper-bound outer))
                   (inner-bound (tile-upper-bound inner)))
-                 #'(* outer-bound inner-bound))
+                 #'((* outer-bound inner-bound)))
      (lambda (body) 
        ((tile-body-gen outer) ((tile-body-gen inner) body))))))
 
