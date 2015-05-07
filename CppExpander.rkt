@@ -6,7 +6,9 @@
 
 (define simple-external-params-table
   (hash 
-   '(Loop1d (test-loop)) (list (list #'(blockIdx . x)) (list #'((/ (threadIdx . x) 32))) (list #'((& (threadIdx . x) 32))) (list #'i) (list #'j) (list #'(gridDim . x)) (list #'((/ (blockDim . x) 32))) (list #'32) (list #'1) (list #'4)) 
+   '(Loop1d (test-loop)) (list 
+                          (list #'(blockIdx . x)) (list #'((/ (threadIdx . x) 32))) (list #'((& (threadIdx . x) 31))) (list #'k) (list #'j) 
+                          (list #'(gridDim . x)) (list #'((/ (blockDim . x) 32))) (list #'32) (list #'1) (list #'4)) 
    '(I ()) '()
    '(N ()) '()))
 
@@ -141,11 +143,8 @@
        (expand-decl
         #'(defun (__global__) void kernelTest ((() int argc) (() char **argv)) 
             (begin
-              (if (== 0 (% argc 4))
-                  (@ Loop1d (test-loop) ((i) (0) (argc)) 
-                     (call printf "%s\\n" (* ((+ argv (@ I () () ()))))))
-                  else
-                  (call printf "args not a multiple of 4: %d\\n" argc))
+              (@ Loop1d (test-loop) ((i) (0) (argc)) 
+                 (call printf "%s\\n" (* ((+ argv (@ I () () ()))))))
               (call printf "done\\n"))) init-skeletons-table)))
   (begin
     (print expanded-code)

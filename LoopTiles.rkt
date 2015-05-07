@@ -31,7 +31,7 @@
                             #`(begin #,@tail)
                             (unroller body (- factor-here 1)
                             (with-syntax ((itr-var itr-var) 
-                                          (itr-val factor-here) 
+                                          (itr-val (- factor-here 1)) 
                                           (body body)) 
                               #`(#,@#'((begin (def ((const) int itr-var = itr-val)) body)) #,@tail))))))) 
                         (unroller body (syntax->datum unroll-factor) #'()))))))
@@ -45,7 +45,7 @@
   (lambda (body itr-exp geom-exp)
     (with-syntax ((body (wrap-in-bounds-check body))
                   (itr-exp itr-exp)) #;(@ I () () ())
-      #'(begin (def ((const) int i = itr-exp)) boxy))))
+      #'(begin (def ((const) int i = itr-exp)) body))))
 
 (define compose-tiles 
   (lambda (outer inner)
