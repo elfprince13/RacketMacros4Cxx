@@ -7,7 +7,8 @@
 (define simple-external-params-table
   (hash 
    '(Loop1d (test-loop)) (list (list #'(blockIdx . x)) (list #'((/ (threadIdx . x) 32))) (list #'((& (threadIdx . x) 32))) (list #'i) (list #'j) (list #'(gridDim . x)) (list #'((/ (blockDim . x) 32))) (list #'32) (list #'1) (list #'4)) 
-   '(I ()) '()))
+   '(I ()) '()
+   '(N ()) '()))
 
 
 (define lookup-skeleton
@@ -51,7 +52,7 @@
                                                           [(@ I () () ()) 
                                                            (lambda (ext-params) 
                                                              (skeleton-expansion
-                                                              (with-syntax ((itr-var counter-exp)) #'itr-var)
+                                                              (with-syntax ((itr-var itr-var)) #'itr-var)
                                                               table-here))]))
                                                    'N (lambda (skel table-here) 
                                                         (syntax-case skel (@ I)
@@ -82,17 +83,22 @@
          #'(while (cond ...) body))]
       [(for ((init ...) (cond ...) (update ...)) body) 
        (with-syntax
-           ((body (expand-stmt #'body skels)))
-         #'(for ((init ...) (cond ...) (update ...)) body))]
+           ((init (expand-stmt #'(init ...) skels))
+            (cond (expand-stmt #'(cond ...) skels))
+            (update (expand-stmt #'(update ...) skels))
+            (body (expand-stmt #'body skels)))
+         #'(for (init cond update) body))]
       [(if (cond ...) body) 
        (with-syntax  
-           ((body (expand-stmt #'body skels))) 
-         #'(if (cond ...) body))]
+           ((cond (expand-stmt #'(cond ...) skels))
+            (body (expand-stmt #'body skels))) 
+         #'(if cond body))]
       [(if (cond ...) body else else-body) 
        (with-syntax 
-           ((body (expand-stmt #'body skels))
+           ((cond (expand-stmt #'(cond ...) skels))
+            (body (expand-stmt #'body skels))
             (else-body (expand-stmt #'else-body skels))) 
-         #'(if (cond ...) body else else-body))]
+         #'(if cond body else else-body))]
       [(begin stmts ... ) 
        (begin 
          #;(print "expanding begin") 
@@ -133,7 +139,7 @@
 ; Note: we don't handle [] array syntax yet, because [] are ()
 (let ((expanded-code 
        (expand-decl
-        #'(defun () int main ((() int argc) (() char **argv)) 
+        #'(defun (__global__) void kernelTest ((() int argc) (() char **argv)) 
             (begin
               (if (== 0 (% argc 4))
                   (@ Loop1d (test-loop) ((i) (0) (argc)) 

@@ -33,13 +33,19 @@
                             (with-syntax ((itr-var itr-var) 
                                           (itr-val factor-here) 
                                           (body body)) 
-                              #`(#,@#'((begin (def (() int itr-var = itr-val)) body)) #,@tail))))))) 
+                              #`(#,@#'((begin (def ((const) int itr-var = itr-val)) body)) #,@tail))))))) 
                         (unroller body (syntax->datum unroll-factor) #'()))))))
 
 
 (define wrap-in-bounds-check
   (lambda (body)
-    (with-syntax ((body body)) #'(if (< @I @N) body))))
+    (with-syntax ((body body)) #'(if (< (@ I () () ()) (@ N () () ())) (begin body)))))
+
+(define make-boilerplate
+  (lambda (body itr-exp geom-exp)
+    (with-syntax ((body (wrap-in-bounds-check body))
+                  (itr-exp itr-exp)) #;(@ I () () ())
+      #'(begin (def ((const) int i = itr-exp)) boxy))))
 
 (define compose-tiles 
   (lambda (outer inner)
@@ -66,7 +72,7 @@
     (lambda (body idxs bounds permutation)
     (let* ((tiles (map (lambda (tf i b) (tf i b)) tile-constructors idxs bounds))
            (loop-structure (compose-tile-permutation tiles permutation)))
-      (values (tile-counter loop-structure) (tile-upper-bound loop-structure) ((tile-body-gen loop-structure) (wrap-in-bounds-check body)))))))
+      (values (tile-counter loop-structure) (tile-upper-bound loop-structure) ((tile-body-gen loop-structure) (make-boilerplate body (tile-counter loop-structure) (tile-upper-bound loop-structure))))))))
 
 (define cuda-loop1d (make-permutation-macro-from-tile-constructors (list make-default-tile make-default-tile make-default-tile make-for-tile make-unroll-tile)))
 (define cuda-loop1d-nowarp (make-permutation-macro-from-tile-constructors (list make-default-tile make-default-tile make-for-tile make-unroll-tile)))
