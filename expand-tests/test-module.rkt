@@ -19,9 +19,9 @@
             (for5 it from low to high in bodies ...)))]
         [(for5 var from low to high in bodies ...)
          (with-syntax 
-             ([local (datum->syntax #f 'local)] ; These must be rendered inert!
-              [lambda (datum->syntax #f 'lambda)]
-              [define (datum->syntax #f 'define)])
+             ([local (identifier-prune-to-source-module #'local)] ; These must be rendered inert!
+              [lambda (identifier-prune-to-source-module #'lambda)]
+              [define (identifier-prune-to-source-module #'define)])
          (syntax #;(this is called 2 loops)
           (local ([define high-value high] 
                   [define loop 
