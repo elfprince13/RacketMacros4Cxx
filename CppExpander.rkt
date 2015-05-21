@@ -1,6 +1,5 @@
 #lang racket
 
-(require (for-template racket))
 (require "LoopTiles.rkt")
 (require "CppWriter.rkt")
 
@@ -139,6 +138,7 @@
 
 
 ; Note: we don't handle [] array syntax yet, because [] are ()
+; Follow-up: check 'paren-shape :)
 (let ((expanded-code 
        (expand-decl
         #'(defun (__global__) void kernelTest ((() int argc) (() char **argv)) 
