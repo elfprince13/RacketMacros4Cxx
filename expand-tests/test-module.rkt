@@ -11,15 +11,16 @@
   
   (define-for-syntax display-inert-body
     (lambda (tag contents) 
-      (with-syntax ([stx-tag tag] 
+      (with-syntax* ([stx-tag tag] 
                     [contents 
                      (stx-map 
                       (lambda (stx) 
                         (syntax->datum (local-expand stx 'top-level #f))) 
-                      contents)]) 
+                      contents)]
+                    [unpacked #'(apply values 'contents)]) 
         (if tag 
-            #'(stx-tag 'contents) 
-            #''contents))))
+            #'(stx-tag unpacked) 
+            #'unpacked))))
   
   
   (define-syntax top-interaction
@@ -39,12 +40,12 @@
       (syntax-case stx (set!)
         [(set! id val) 
          (begin
-           (emit-remark "Beginning set! inspection")
-           (emit-remark #'id (~a (identifier-binding #'id)) (~a (syntax-property-symbol-keys #'id)) (~a (syntax-property #'id 'mark)))
-           (if (identifier? #'val) 
+           #;(emit-remark "Beginning set! inspection")
+           #;(emit-remark #'id (~a (identifier-binding #'id)) (~a (syntax-property-symbol-keys #'id)) (~a (syntax-property #'id 'mark)))
+           #;(if (identifier? #'val) 
                (emit-remark #'val (~a (identifier-binding #'val)) (~a (syntax-property-symbol-keys #'val)) (~a (syntax-property #'val 'mark)))
                (emit-remark "No second identifier"))
-           (emit-remark "Ending set! inspection")
+           #;(emit-remark "Ending set! inspection")
            #;(begin 
              (display (syntax-local-context)) (newline)
              (display (syntax-local-submodules)) (newline)
