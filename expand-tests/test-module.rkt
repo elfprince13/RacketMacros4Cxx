@@ -5,22 +5,20 @@
   (require (for-syntax syntax/stx))
   (require (for-syntax syntax/context))
   (require (for-syntax racket/syntax))
+  (require (for-syntax macro-debugger/emit))
+  (require (for-syntax racket/format))
   
   (define-syntax set!
     (lambda (stx) 
       (syntax-case stx (set!)
         [(set! id val) 
          (begin
-           (print "Beginning set! inspection") (newline)
-           (print #'id) (newline)
-           (print (identifier-binding #'id)) (newline)
-           (if (identifier? #'val)
-               (begin
-                 (print #'val) (newline)
-                 (print (identifier-binding #'val)) (newline))
-               (begin
-                 (print "No second identifier") (newline)))
-           (print "Ending set! inspection") (newline)
+           (emit-remark "Beginning set! inspection")
+           (emit-remark #'id (~a (identifier-binding #'id)) (~a (syntax-property-symbol-keys #'id)) (~a (syntax-property #'id 'mark)))
+           (if (identifier? #'val) 
+               (emit-remark #'val (~a (identifier-binding #'val)) (~a (syntax-property-symbol-keys #'val)) (~a (syntax-property #'val 'mark)))
+               (emit-remark "No second identifier"))
+           (emit-remark "Ending set! inspection")
            #'(set!~ id val))])))
   
   (define-syntax let*
@@ -51,8 +49,8 @@
       (syntax-case stx (swap)
         [(swap a b) 
          (with-syntax
-             ([let* (identifier-prune-to-source-module #'let*)] ; Strip the original racket definitions!
-              [set! (identifier-prune-to-source-module #'set!)])
+             (#;[let* (identifier-prune-to-source-module #'let*)] ; Strip the original racket definitions!
+              #;[set! (identifier-prune-to-source-module #'set!)])
            #'(let* ([tmp a])
                (set! a b)
                (set! b tmp)))])))

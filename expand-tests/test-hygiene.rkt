@@ -9,10 +9,11 @@
   (let ([expand-maybe-step-quoted-form 
          (lambda (quoted-form)
            (let ([stx (datum->syntax #f quoted-form)])
-             (begin (print (expand/step stx)) (newline))
+             (expand/step stx)
              (begin (print (expand-to-top-form stx)) (newline))))])
     #;(expand-maybe-step-quoted-form '(for5 from 1 to 10 in (let ((tmp it) (y 5)) (begin (swap tmp y) (print it) (print tmp) (print y)))))
-    (expand-maybe-step-quoted-form '(let* ((tmp 1) (j tmp)) (swap tmp j) (print tmp) (print j)))))
+    (expand-maybe-step-quoted-form 
+     '(let* ((tmp 1) (j 2)) (swap tmp j) (print tmp) (print j)))))
 
 
 
