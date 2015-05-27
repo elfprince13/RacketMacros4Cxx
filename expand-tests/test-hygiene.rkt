@@ -11,7 +11,7 @@
            (let ([stx (datum->syntax #f quoted-form)])
              (expand/step stx)
              (begin (print (expand-to-top-form stx)) (newline))))])
-    #;(expand-maybe-step-quoted-form '(for5 from 1 to 10 in (let ((tmp it) (y 5)) (begin (swap tmp y) (print it) (print tmp) (print y)))))
+    #;(expand-maybe-step-quoted-form '(for5 from 1 to 10 in (let* ((tmp it) (y 5)) (swap tmp y) (print it) (print tmp) (print y))))
     (expand-maybe-step-quoted-form 
      '(let* ((tmp 1) (j 2)) (swap tmp j) (print tmp) (print j)))))
 

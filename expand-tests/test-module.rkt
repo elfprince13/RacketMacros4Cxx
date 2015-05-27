@@ -1,12 +1,38 @@
 (module test racket
   ;this file is primarily necessary because I can't figure out how the search path for an inline-module works
-  (provide (all-defined-out))
+  (provide (except-out (all-defined-out) module-begin top-interaction)
+           (rename-out [module-begin #%module-begin] [top-interaction #%top-interaction]))
   
   (require (for-syntax syntax/stx))
   (require (for-syntax syntax/context))
   (require (for-syntax racket/syntax))
   (require (for-syntax macro-debugger/emit))
   (require (for-syntax racket/format))
+  
+  (define-for-syntax display-inert-body
+    (lambda (tag contents) 
+      (with-syntax ([stx-tag tag] 
+                    [contents 
+                     (stx-map 
+                      (lambda (stx) 
+                        (syntax->datum (local-expand stx 'top-level #f))) 
+                      contents)]) 
+        (if tag 
+            #'(stx-tag 'contents) 
+            #''contents))))
+  
+  
+  (define-syntax top-interaction
+    (lambda (stx)
+      (syntax-case stx ()
+        [(top-interaction . body)
+        (display-inert-body #f #'(body))])))
+  
+  (define-syntax module-begin
+    (lambda (stx)
+      (syntax-case stx ()
+        [(module-begin bodies ...)
+         (display-inert-body #'#%module-begin #'(bodies ...))])))
   
   (define-syntax set!
     (lambda (stx) 
@@ -19,6 +45,11 @@
                (emit-remark #'val (~a (identifier-binding #'val)) (~a (syntax-property-symbol-keys #'val)) (~a (syntax-property #'val 'mark)))
                (emit-remark "No second identifier"))
            (emit-remark "Ending set! inspection")
+           #;(begin 
+             (display (syntax-local-context)) (newline)
+             (display (syntax-local-submodules)) (newline)
+             (display (map syntax-local-module-exports (syntax-local-submodules))) (newline)
+             )
            #'(set!~ id val))])))
   
   (define-syntax let*
