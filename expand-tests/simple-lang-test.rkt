@@ -6,6 +6,7 @@
 ; (c) access the current intdef-ctx at all!
 ; Idea: keep our own identifier dictionary when walking for CppWriter
 ; and use Source Location information to check which identifiers are original and which are introduced
+; CppWriter probably wants to use pretty print
 
 (let* ((tmp 1) (j 2)) 
   (swap tmp j) 
