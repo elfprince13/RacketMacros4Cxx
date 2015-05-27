@@ -4,6 +4,8 @@
 ; (a) compare if two bits of syntax have the same marks
 ; (b) list currently known identifiers
 ; (c) access the current intdef-ctx at all!
+; Idea: keep our own identifier dictionary when walking for CppWriter
+; and use Source Location information to check which identifiers are original and which are introduced
 
 (let* ((tmp 1) (j 2)) 
   (swap tmp j) 
