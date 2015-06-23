@@ -1,4 +1,6 @@
 (module test racket
+  (require (for-syntax racket/dict))
+  (require (for-syntax syntax/id-table))
   (require (for-syntax syntax/stx))
   (require (for-syntax syntax/context))
   (require (for-syntax racket/syntax))
@@ -8,6 +10,42 @@
   (provide (except-out (all-defined-out) module-begin top-interaction)
            (rename-out [module-begin #%module-begin] [top-interaction #%top-interaction]))
   
+  (define-for-syntax walk-expr-safe-ids
+    (lambda (shadow-table bind-table) ; we need two tables: one for replace bound-ids and one to test shadowing with free-ids
+      (letrec 
+          ([safe-print-id 
+            (lambda (stx)
+              (if (identifier? stx)
+                  (dict-ref bind-table stx stx)
+                  stx))]
+           [walk-expr 
+            (lambda (stx)
+              (syntax-case stx (lambda)
+                [(lambda (arg) bodies ...)
+                 (begin
+                   (display (~a (list #'arg " has " (syntax-source #'arg) (syntax-source stx) (identifier? #'arg))))
+                   (newline)
+                   (display stx) (newline)
+                   (display #'arg) (newline)
+                   (if (syntax-source #'arg)
+                       (dict-set! shadow-table #'arg #'arg)
+                       (if (dict-has-key? shadow-table #'arg) ; Would this shadow?
+                           (dict-set! bind-table #'arg (generate-temporary #'arg))
+                           (void)))
+                   
+                   (with-syntax 
+                       ([arg 
+                         (safe-print-id #'arg)]
+                        [(bodies ...) 
+                         (stx-map
+                          (lambda (stx)
+                            (walk-expr stx)) #'(bodies ...))])
+                     #'(lambda (arg) bodies ...)))]
+                [(seq ...)
+                 (stx-map walk-expr #'(seq ...))]
+                [atom (safe-print-id #'atom)]))]) 
+        walk-expr)))
+  
   
   (define-for-syntax display-inert-body
     (lambda (tag contents) 
@@ -15,7 +53,8 @@
                      [contents 
                       (stx-map 
                        (lambda (stx) 
-                         (syntax->datum (local-expand stx 'top-level #f))) 
+                         (let ([expanded (syntax->datum (local-expand stx 'top-level #f))])
+                           ((walk-expr-safe-ids (make-free-id-table) (make-bound-id-table)) expanded))) 
                        contents)]
                      [unpacked #'(apply values 'contents)]) 
         (if tag 
@@ -59,6 +98,7 @@
         [(let* ((id expr)) bodies ...)
          (let ([intdef (syntax-local-make-definition-context)])
            (begin
+             (display (~a (list "let*" #'id (syntax-source #'id)))) (newline)
              (syntax-local-bind-syntaxes (list #'id) #f intdef)
              (internal-definition-context-seal intdef)
              (with-syntax
@@ -70,6 +110,8 @@
                     #'(bodies ...))]
                   [id (internal-definition-context-apply intdef #'id)]
                   [lambda (identifier-prune-to-source-module #'lambda)]) ; Strip the original racket definitions!
+               
+               (display (~a (list "let*-inner" #'id (syntax-source #'id)))) (newline)
                #'((lambda (id) bodies ...) expr))))]
         [(let* ((id expr) (more-ids more-exprs) ...) bodies ...)
          (with-syntax
