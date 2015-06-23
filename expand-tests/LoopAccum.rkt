@@ -19,7 +19,8 @@
      #'(begin (set! x 0) ...)]))
 
 (define-syntax Loop
-  (syntax-parser
+  (lambda (stx)
+  (syntax-parse stx
     [(Loop accum-id:id up-to-expr:expr body:expr ...+)
      #'(syntax-parameterize 
         ([vars (mutable-set)]) 
@@ -29,7 +30,11 @@
                 (syntax-parse stx
                   [(accum-id x:id dx:expr)
                    (define vs (syntax-parameter-value #'vars))
-                   (unless (set-mutable? vs)
+                   ; Note: 
+                   ; this has bad effects, because each expansion shares a parameter value, 
+                   ; rather than each Loop/Accum instantiation
+                   ; See "my-def-stx" example below for a fix
+                   (unless (set-mutable? vs) 
                      (raise-syntax-error #f "cannot be used outside Loop" stx))
                    (set-add! vs (syntax-local-introduce #'x))
                    #'(set! x (+ x dx))]))])
@@ -46,8 +51,8 @@
               (loop 0)))))]
     [(Loop up-to-expr:expr body:expr ...+)
      (with-syntax 
-         ([Accum (datum->syntax #'Loop 'Accum)])
-       #'(Loop Accum up-to-expr body ...))])) 
+         ([Accum (datum->syntax stx 'Accum)])
+       #'(Loop Accum up-to-expr body ...))])))
 
 (let ([w "w"] [x "x"] [y "y"] [z "z"])
   (Loop 5
