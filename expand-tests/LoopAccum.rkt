@@ -80,7 +80,7 @@
          
          (display ((syntax-local-value 
                    (internal-definition-context-apply intdef (car (syntax->list #'(id ...)))) 
-                   #f intdef) #'j)) (newline)
+                   #f intdef))) (newline)
          ret
            
          
@@ -89,7 +89,7 @@
 (my-def-stx 
  (j i) (let ([secret 1]) 
          (values 
-          (lambda (stx)
+          (lambda ([stx #f])
             (with-syntax ([secret secret]) #'secret))
           (lambda (stx) 
             (set! secret (+ secret 1))
