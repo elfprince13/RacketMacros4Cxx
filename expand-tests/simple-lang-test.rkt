@@ -14,7 +14,7 @@
   (print tmp) 
   (print j))
 
-(let* ((tmp 1) (j tmp)) 
+;(let* ((tmp 1) (j tmp)) 
   (swap tmp j) 
   (print tmp) 
   (print j))

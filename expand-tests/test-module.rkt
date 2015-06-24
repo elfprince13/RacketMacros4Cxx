@@ -20,17 +20,21 @@
                   stx))]
            [walk-expr 
             (lambda (stx)
-              (syntax-case stx (lambda)
-                [(lambda (arg) bodies ...)
+              (syntax-case stx () ; bizarre interaction with syntax-case and lambda: can't have lambda as a keyword argument, or the syntax-case breaks
+                [(f (arg) bodies ...)
                  (begin
-                   (display (~a (list #'arg " has " (syntax-source #'arg) (syntax-source stx) (identifier? #'arg))))
+                   (display (~a (list "lambda: " #'arg " has " (syntax-source #'arg) (syntax-source stx) (identifier? #'arg))))
                    (newline)
                    (display stx) (newline)
                    (display #'arg) (newline)
                    (if (syntax-source #'arg)
-                       (dict-set! shadow-table #'arg #'arg)
+                       (begin
+                         (display (~a (list "setting shadow-table for " #'arg))) (newline) ; this is too primitive we need a stack
+                         (dict-set! shadow-table #'arg #'arg))
                        (if (dict-has-key? shadow-table #'arg) ; Would this shadow?
-                           (dict-set! bind-table #'arg (generate-temporary #'arg))
+                           (let ([btv (generate-temporary #'arg)])
+                             (display (~a (list "setting bind-table " #'arg " to " btv))) (newline)
+                             (dict-set! bind-table #'arg btv))
                            (void)))
                    
                    (with-syntax 
@@ -40,10 +44,15 @@
                          (stx-map
                           (lambda (stx)
                             (walk-expr stx)) #'(bodies ...))])
-                     #'(lambda (arg) bodies ...)))]
+                     #'(f (arg) bodies ...)))]
                 [(seq ...)
-                 (stx-map walk-expr #'(seq ...))]
-                [atom (safe-print-id #'atom)]))]) 
+                 (begin
+                   ;(display (~a (list "seq: " #'(seq ...)))) (newline)
+                   (stx-map walk-expr #'(seq ...)))]
+                [atom 
+                 (begin
+                   ;(display (~a (list "atom: " #'atom))) (newline)
+                   (safe-print-id #'atom))]))]) 
         walk-expr)))
   
   
@@ -53,7 +62,7 @@
                      [contents 
                       (stx-map 
                        (lambda (stx) 
-                         (let ([expanded (syntax->datum (local-expand stx 'top-level #f))])
+                         (let ([expanded (local-expand stx 'top-level #f)])
                            ((walk-expr-safe-ids (make-free-id-table) (make-bound-id-table)) expanded))) 
                        contents)]
                      [unpacked #'(apply values 'contents)]) 
@@ -98,20 +107,21 @@
         [(let* ((id expr)) bodies ...)
          (let ([intdef (syntax-local-make-definition-context)])
            (begin
-             (display (~a (list "let*" #'id (syntax-source #'id)))) (newline)
+             ;(display (~a (list "let*" #'id (syntax-source #'id)))) (newline)
              (syntax-local-bind-syntaxes (list #'id) #f intdef)
              (internal-definition-context-seal intdef)
-             (with-syntax
+             (with-syntax*
                  ([(bodies ...) 
                    (stx-map 
                     (lambda (body)
                       (with-syntax ([body body])
                         (local-expand #'body (build-expand-context 'expression) #f intdef)))
                     #'(bodies ...))]
-                  [id (internal-definition-context-apply intdef #'id)]
+                  [id-tmp (internal-definition-context-apply intdef #'id)]
+                  [id (syntax/loc #'id id-tmp)]
                   [lambda (identifier-prune-to-source-module #'lambda)]) ; Strip the original racket definitions!
                
-               (display (~a (list "let*-inner" #'id (syntax-source #'id)))) (newline)
+               ;(display (~a (list "let*-inner" #'id (syntax-source #'id)))) (newline)
                #'((lambda (id) bodies ...) expr))))]
         [(let* ((id expr) (more-ids more-exprs) ...) bodies ...)
          (with-syntax
@@ -122,9 +132,7 @@
     (lambda (stx)
       (syntax-case stx (swap)
         [(swap a b) 
-         (with-syntax
-             (#;[let* (identifier-prune-to-source-module #'let*)] ; Strip the original racket definitions!
-              #;[set! (identifier-prune-to-source-module #'set!)])
+         (with-syntax ()
            #'(let* ([tmp a])
                (set! a b)
                (set! b tmp)))])))
