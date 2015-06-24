@@ -11,7 +11,7 @@
            (rename-out [module-begin #%module-begin] [top-interaction #%top-interaction]))
   
   (define-for-syntax walk-expr-safe-ids
-    (lambda (shadow-table bind-table) ; we need two tables: one for replace bound-ids and one to test shadowing with free-ids
+    (lambda (bind-table)
       (letrec 
           ([safe-print-id 
             (lambda (stx)
@@ -28,14 +28,10 @@
                    (display stx) (newline)
                    (display #'arg) (newline)
                    (if (syntax-source #'arg)
-                       (begin
-                         (display (~a (list "setting shadow-table for " #'arg))) (newline) ; this is too primitive we need a stack
-                         (dict-set! shadow-table #'arg #'arg))
-                       (if (dict-has-key? shadow-table #'arg) ; Would this shadow?
-                           (let ([btv (generate-temporary #'arg)])
+                       (void)
+                       (let ([btv (generate-temporary #'arg)])
                              (display (~a (list "setting bind-table " #'arg " to " btv))) (newline)
-                             (dict-set! bind-table #'arg btv))
-                           (void)))
+                             (dict-set! bind-table #'arg btv)))
                    
                    (with-syntax 
                        ([arg 
@@ -63,7 +59,7 @@
                       (stx-map 
                        (lambda (stx) 
                          (let ([expanded (local-expand stx 'top-level #f)])
-                           ((walk-expr-safe-ids (make-free-id-table) (make-bound-id-table)) expanded))) 
+                           ((walk-expr-safe-ids (make-bound-id-table)) expanded))) 
                        contents)]
                      [unpacked #'(apply values 'contents)]) 
         (if tag 

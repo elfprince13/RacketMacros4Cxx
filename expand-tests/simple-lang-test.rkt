@@ -14,10 +14,15 @@
   (print tmp) 
   (print j))
 
-;(let* ((tmp 1) (j tmp)) 
+(let* ((tmp 1) (j tmp)) 
   (swap tmp j) 
   (print tmp) 
   (print j))
+
+(let* ((i 1) (j 1) (tmp3 4))
+  (swap i j)
+  (let* ((tmp 1)) (print tmp))
+  (swap i j))
 
 #;(for5 from 1 to 10 in 
         (let* ((tmp it) 
