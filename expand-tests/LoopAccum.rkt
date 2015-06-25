@@ -1,12 +1,11 @@
-#lang racket/base
+#lang racket
 
-(require racket/stxparam
-         (for-syntax racket/base
+(require (for-syntax racket/base
                      racket/set
                      racket/syntax
+                     syntax/context
                      syntax/parse
-                     syntax/stx
-                     syntax/context))
+                     syntax/stx))
 
 (define-syntax Loop
   (lambda (stx)
