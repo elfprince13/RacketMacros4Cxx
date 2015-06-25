@@ -1,5 +1,8 @@
 #lang racket
 
+(require syntax/parse
+         "syntax-classes.rkt")
+
 (provide (all-defined-out))
 
 (define make-cpp-expr 
@@ -72,30 +75,30 @@
       [(name = expr ...) (string-append (symbol->string (syntax->datum #'name)) " = " (make-cpp-expr #'(expr ...)))]
       [(name (expr ...)) (string-append (symbol->string (syntax->datum #'name)) "(" (make-cpp-expr #'(expr ...)) ")")])))
 
+(define make-storage-classes
+  (lambda (storage-syntax)
+    (string-join 
+         (map symbol->string 
+              (syntax->datum storage-syntax)) " " #:after-last " ")))
+    
+
 (define make-cpp-decl 
   (lambda (decl)
-    (syntax-case decl (def defun)
-      [(defun (storage ...) ret-type name (args ...) body)
+    (syntax-parse decl
+      [defun:fun-decl
        (string-append 
-        (string-join 
-         (map symbol->string 
-              (syntax->datum #'(storage ...))) " " #:after-last " ")
-        (symbol->string (syntax->datum #'ret-type)) " "
-        (symbol->string (syntax->datum #'name)) "(" (string-join (map make-cpp-decl (syntax->list #'(args ...))) ", ") ")" 
-        (make-cpp-stmt #'body))]
-      [((storage ...) type name init ...) 
+        (make-storage-classes #'defun.storage-classes)
+        (symbol->string (syntax->datum #'defun.ret-type)) " "
+        (symbol->string (syntax->datum #'defun.name)) "(" (string-join (map make-cpp-decl (syntax->list #'defun.args)) ", ") ")" 
+        (make-cpp-stmt #'defun.body))]
+      [var:var-decl 
        (string-append
-        (string-join
-         (map symbol->string
-              (syntax->datum #'(storage ...))) " " #:after-last " ")
-        (symbol->string (syntax->datum #'type)) " " (make-cpp-init #'(name init ...)))]
-      [(def ((storage ...) type name init ...) (next-name next-init ...) ...) 
+        (make-storage-classes #'var.storage-classes)
+        (symbol->string (syntax->datum #'var.type)) " " (make-cpp-init #'var.init))]
+      [def:decls 
        (string-append
-        (string-join
-         (map symbol->string
-              (syntax->datum #'(storage ...))) " " #:after-last " ")
-        (symbol->string (syntax->datum #'type)) " " (make-cpp-init #'(name init ...)) 
-        (let ((extra-decls (syntax->list #'((next-name next-init ...) ...))))
+        (make-cpp-decl #'def.var) 
+        (let ((extra-decls (syntax->list #'def.extra-vars)))
           (string-join
            (map make-cpp-init extra-decls) ", "
            #:before-first (if (eq? 0 (length extra-decls)) "" ", "))))])))

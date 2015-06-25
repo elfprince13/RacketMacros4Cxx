@@ -1,7 +1,18 @@
 #lang racket
 
-(require "LoopTiles.rkt")
-(require "CppWriter.rkt")
+(require (for-syntax macro-debugger/emit
+         racket/format
+         racket/dict
+         racket/syntax
+         syntax/context
+         syntax/id-table
+         syntax/stx))
+
+(require (for-syntax "util.rkt"))
+(require "../LoopTiles.rkt")
+
+(require "req-utils.rkt")
+(provide (all-defined-out))
 
 (define simple-external-params-table
   (hash 
@@ -66,7 +77,7 @@
                                   (raise-argument-error 'ext-params "10 arguments required" ext-params))))))))])))))
 
 
-(define expand-stmt 
+#;(define expand-stmt 
   (lambda (stmt skels) 
     (syntax-case stmt (if else for while begin call def @) 
       [(@ SkelKind (name ...) (params ...) body) 
@@ -78,10 +89,18 @@
            (begin
              ;(print (list "re-expanding with " (skeleton-expansion-body expansion) (skeleton-expansion-table expansion))) (newline)
              (expand-stmt (skeleton-expansion-body expansion) (skeleton-expansion-table expansion)))))] ; The expansion process may have introduced new macros, so expand those too
+      )))
+
+(define-syntax while
+  (lambda (stx)
+    (syntax-case stx ()
       [(while (cond ...) body) 
        (with-syntax 
-           ((body (expand-stmt #'body skels)))
-         #'(while (cond ...) body))]
+           ([(cond ...) (local-expand #'(cond ...) 'expression #f)]
+            [body (local-expand #'body 'expression #f)])
+         #'(while (cond ...) body))])))
+
+#;(((
       [(for ((init ...) (cond ...) (update ...)) body) 
        (with-syntax
            ((init (expand-stmt #'(init ...) skels))
@@ -126,8 +145,12 @@
            (datum->syntax stmt expr-components)))]
       [any #'any]))) 
 
-(define expand-decl 
-  (lambda (decl skels)
+(define-syntax defun
+  (lambda (stx)
+    (syntax-case stx ()
+      [(defun (storage ...) ret-type name (args ...) body) 
+       #'()])))
+  #;((lambda (decl skels)
     (syntax-case decl (def defun)
       [(defun (storage ...) 
          ret-type name (args ...) body)
@@ -136,18 +159,31 @@
       [(def ((storage ...) type name init ...) 
          (next-name next-init ...) ...) decl])))
 
+(define-for-syntax display-inert-body
+  (lambda (tag contents) 
+    (with-syntax* ([stx-tag tag] 
+                   [contents 
+                    (stx-map 
+                     (lambda (stx) 
+                       (let ([expanded (local-expand stx 'top-level #f)])
+                         ((walk-expr-safe-ids (make-bound-id-table)) expanded))) 
+                     contents)]
+                   [unpacked #'(apply values 'contents)]) 
+      (if tag 
+          #'(stx-tag unpacked) 
+          #'unpacked))))
 
-; Note: we don't handle [] array syntax yet, because [] are ()
-; Follow-up: check 'paren-shape :)
-(let ((expanded-code 
-       (expand-decl
-        #'(defun (__global__) void kernelTest ((() int argc) (() char **argv)) 
-            (begin
-              (@ Loop1d (test-loop) ((i) (0) (argc)) 
-                 (call printf "%s\\n" (* ((+ argv (@ I () () ()))))))
-              (call printf "done\\n"))) init-skeletons-table)))
-  (begin
-    (print expanded-code)
-    (newline)
-    (display (make-cpp-decl expanded-code))))
+(define-syntax top-interaction
+  (lambda (stx)
+    (syntax-case stx ()
+      [(top-interaction . body)
+       (display-inert-body #f #'(body))])))
+
+(define-syntax module-begin
+  (lambda (stx)
+    (syntax-case stx ()
+      [(module-begin bodies ...)
+       (display-inert-body #'#%module-begin #'(bodies ...))])))
+
+
 
