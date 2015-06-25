@@ -7,8 +7,7 @@
                      syntax/id-table
                      syntax/stx))
 
-(provide (except-out (all-defined-out) module-begin top-interaction)
-         (rename-out [module-begin #%module-begin] [top-interaction #%top-interaction]))
+(provide (all-defined-out))
 
 
 (define-for-syntax walk-expr-safe-ids
@@ -62,13 +61,6 @@
           #'(stx-tag unpacked) 
           #'unpacked))))
 
-(define-for-syntax no-expand
-  (lambda (stx)
-    (syntax-case stx ()
-      [(macro args ...)
-       (with-syntax ([macro (datum->syntax #f (syntax->datum #'macro) #'macro #'macro)])
-         #'(macro args ...))])))
-
 
 (define-syntax top-interaction
   (lambda (stx)
@@ -81,6 +73,13 @@
     (syntax-case stx ()
       [(module-begin bodies ...)
        (display-inert-body #'#%module-begin #'(bodies ...))])))
+
+(define-for-syntax no-expand
+  (lambda (stx)
+    (syntax-case stx ()
+      [(macro args ...)
+       (with-syntax ([macro (datum->syntax #f (syntax->datum #'macro) #'macro #'macro)])
+         #'(macro args ...))])))
 
 (define-syntax print
   (lambda (stx)

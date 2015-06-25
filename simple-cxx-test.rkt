@@ -1,4 +1,4 @@
-#lang s-exp "test-module.rkt"
+#lang Cxx
 ; Notes: Syntax-local-bind-syntaxes should be able to dynamically introduce macros :)
 ; Still can't figure out how to
 ; (a) compare if two bits of syntax have the same marks
