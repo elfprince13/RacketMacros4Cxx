@@ -1,4 +1,4 @@
-(module test racket
+#lang racket
   (require (for-syntax racket/dict))
   (require (for-syntax syntax/id-table))
   (require (for-syntax syntax/stx))
@@ -21,33 +21,28 @@
            [walk-expr 
             (lambda (stx)
               (syntax-case stx () ; bizarre interaction with syntax-case and lambda: can't have lambda as a keyword argument, or the syntax-case breaks
-                [(f (arg) bodies ...)
+                [(let* ((arg expr)) bodies ...)
                  (begin
-                   (display (~a (list "lambda: " #'arg " has " (syntax-source #'arg) (syntax-source stx) (identifier? #'arg))))
-                   (newline)
-                   (display stx) (newline)
-                   (display #'arg) (newline)
                    (if (syntax-source #'arg)
                        (void)
                        (let ([btv (generate-temporary #'arg)])
-                             (display (~a (list "setting bind-table " #'arg " to " btv))) (newline)
                              (dict-set! bind-table #'arg btv)))
                    
                    (with-syntax 
                        ([arg 
                          (safe-print-id #'arg)]
+                        [expr
+                         (walk-expr #'expr)]
                         [(bodies ...) 
                          (stx-map
                           (lambda (stx)
                             (walk-expr stx)) #'(bodies ...))])
-                     #'(f (arg) bodies ...)))]
+                     #'(let* ((arg expr)) bodies ...)))]
                 [(seq ...)
                  (begin
-                   ;(display (~a (list "seq: " #'(seq ...)))) (newline)
                    (stx-map walk-expr #'(seq ...)))]
                 [atom 
                  (begin
-                   ;(display (~a (list "atom: " #'atom))) (newline)
                    (safe-print-id #'atom))]))]) 
         walk-expr)))
   
@@ -66,6 +61,13 @@
             #'(stx-tag unpacked) 
             #'unpacked))))
   
+  (define-for-syntax no-expand
+    (lambda (stx)
+      (syntax-case stx ()
+        [(macro args ...)
+         (with-syntax ([macro (datum->syntax #f (syntax->datum #'macro) #'macro #'macro)])
+           #'(macro args ...))])))
+  
   
   (define-syntax top-interaction
     (lambda (stx)
@@ -79,46 +81,41 @@
         [(module-begin bodies ...)
          (display-inert-body #'#%module-begin #'(bodies ...))])))
   
+  (define-syntax print
+    (lambda (stx)
+      (syntax-case stx (print)
+        [(print id) (no-expand stx)])))
+  
+  (define-syntax dummy
+    (lambda (stx)
+      (syntax-case stx ()
+        [(dummy) (no-expand stx)])))
+  
   (define-syntax set!
     (lambda (stx) 
       (syntax-case stx (set!)
         [(set! id val) 
-         (begin
-           #;(emit-remark "Beginning set! inspection")
-           #;(emit-remark #'id (~a (identifier-binding #'id)) (~a (syntax-property-symbol-keys #'id)) (~a (syntax-property #'id 'mark)))
-           #;(if (identifier? #'val) 
-                 (emit-remark #'val (~a (identifier-binding #'val)) (~a (syntax-property-symbol-keys #'val)) (~a (syntax-property #'val 'mark)))
-                 (emit-remark "No second identifier"))
-           #;(emit-remark "Ending set! inspection")
-           #;(begin 
-               (display (syntax-local-context)) (newline)
-               (display (syntax-local-submodules)) (newline)
-               (display (map syntax-local-module-exports (syntax-local-submodules))) (newline)
-               )
-           #'(set!~ id val))])))
+         (no-expand stx)])))
   
   (define-syntax let*
     (lambda (stx)
       (syntax-case stx (let*)
         [(let* ((id expr)) bodies ...)
          (let ([intdef (syntax-local-make-definition-context)])
-           (begin
-             ;(display (~a (list "let*" #'id (syntax-source #'id)))) (newline)
-             (syntax-local-bind-syntaxes (list #'id) #f intdef)
-             (internal-definition-context-seal intdef)
-             (with-syntax*
-                 ([(bodies ...) 
-                   (stx-map 
-                    (lambda (body)
-                      (with-syntax ([body body])
-                        (local-expand #'body (build-expand-context 'expression) #f intdef)))
-                    #'(bodies ...))]
-                  [id-tmp (internal-definition-context-apply intdef #'id)]
-                  [id (syntax/loc #'id id-tmp)]
-                  [lambda (identifier-prune-to-source-module #'lambda)]) ; Strip the original racket definitions!
-               
-               ;(display (~a (list "let*-inner" #'id (syntax-source #'id)))) (newline)
-               #'((lambda (id) bodies ...) expr))))]
+           (syntax-local-bind-syntaxes (list #'id) #f intdef)
+           (internal-definition-context-seal intdef)
+           (no-expand
+            (with-syntax*
+                ([(bodies ...) 
+                  (stx-map 
+                   (lambda (body)
+                     (with-syntax ([body body])
+                       (local-expand #'body (build-expand-context 'expression) #f intdef)))
+                   #'(bodies ...))]
+                 [id-tmp (internal-definition-context-apply intdef #'id)]
+                 [id (syntax/loc #'id id-tmp)]
+                 [expr (local-expand #'expr 'expression #f)]) ; Strip the original racket definitions!
+              #'(let* ((id expr)) bodies ...))))]
         [(let* ((id expr) (more-ids more-exprs) ...) bodies ...)
          (with-syntax
              ([body #'(let* ((more-ids more-exprs) ...) bodies ...)])
@@ -132,25 +129,3 @@
            #'(let* ([tmp a])
                (set! a b)
                (set! b tmp)))])))
-  
-  (define-syntax for5 
-    (lambda (stx) 
-      (syntax-case stx (from to in)
-        [(for5 from low to high in bodies ...)
-         (with-syntax ([it (datum->syntax (syntax for5) 'it)])
-           (syntax
-            (for5 it from low to high in bodies ...)))]
-        [(for5 var from low to high in bodies ...)
-         (with-syntax 
-             ([local (identifier-prune-to-source-module #'local)] ; Strip the original racket definitions!
-              [lambda (identifier-prune-to-source-module #'lambda)]
-              [define (identifier-prune-to-source-module #'define)])
-           (syntax #;(this is called 2 loops)
-                   (local ([define high-value high] 
-                           [define loop 
-                             (lambda (var)
-                               (if (> var high-value) 'done
-                                   (begin
-                                     bodies ...
-                                     (loop (+ var 1)))))])
-                     (loop low))))]))))

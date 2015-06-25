@@ -11,7 +11,8 @@
 
 (let* ((tmp 1) (j 2)) 
   (swap tmp j) 
-  (print tmp) 
+  (print tmp)
+  (dummy)
   (print j))
 
 (let* ((tmp 1) (j tmp)) 
@@ -19,15 +20,9 @@
   (print tmp) 
   (print j))
 
-(let* ((i 1) (j 1) (tmp3 4))
+(let* ((i 1) (j 1) (tmp3 (swap i j)))
   (swap i j)
-  (let* ((tmp 1)) (print tmp))
+  (let* ((tmp 1)) 
+    (print tmp)
+    (print tmp3))
   (swap i j))
-
-#;(for5 from 1 to 10 in 
-        (let* ((tmp it) 
-               (y 5)) 
-          (swap tmp y) 
-          (print it) 
-          (print tmp) 
-          (print y)))
