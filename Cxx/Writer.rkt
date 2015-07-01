@@ -1,6 +1,7 @@
 #lang racket
 
 (require syntax/parse
+         syntax/stx
          "syntax-classes.rkt")
 
 (provide (all-defined-out))
@@ -69,11 +70,17 @@
          (string-append (make-cpp-expr stmt) ";\n"))])))
 
 (define make-cpp-init 
-  (lambda (init)
-    (syntax-case init ()
-      [(name) (symbol->string (syntax->datum #'name))]
-      [(name = expr ...) (string-append (symbol->string (syntax->datum #'name)) " = " (make-cpp-expr #'(expr ...)))]
-      [(name (expr ...)) (string-append (symbol->string (syntax->datum #'name)) "(" (make-cpp-expr #'(expr ...)) ")")])))
+  (lambda (stx)
+    (syntax-parse stx
+      [(init:var-init) 
+       (let ([name (symbol->string (syntax->datum #'init.name))])
+         (if (stx-null? #'init.exp) 
+             name
+             (let ([head (stx-car #'init.exp)]
+                   [expr (stx-cdr #'init.exp)])
+               (if (eq? '= (syntax->datum head))
+                   (string-append name " = " (make-cpp-expr expr))
+                   (string-append name (make-cpp-expr #'init.exp))))))])))
 
 (define make-storage-classes
   (lambda (storage-syntax)
@@ -83,8 +90,8 @@
     
 
 (define make-cpp-decl 
-  (lambda (decl)
-    (syntax-parse decl
+  (lambda (stx)
+    (syntax-parse stx
       [defun:fun-decl
        (string-append 
         (make-storage-classes #'defun.storage-classes)

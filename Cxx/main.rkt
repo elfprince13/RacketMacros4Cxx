@@ -22,4 +22,5 @@
 
 (display (make-cpp-decl #'(defun (__global__) void kernelTest ((() int argc) (() char** argv)) 
             (begin
-              (call printf "done\\n")))))
+              (for ((() int i = 0) (0) (argc))
+                (call printf "done\\n"))))))

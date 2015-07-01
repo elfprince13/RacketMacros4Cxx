@@ -6,9 +6,11 @@
          racket/syntax
          syntax/context
          syntax/id-table
+         syntax/parse
          syntax/stx))
 
-(require (for-syntax "util.rkt"))
+(require (for-syntax "util.rkt"
+                     "syntax-classes.rkt"))
 (require "../LoopTiles.rkt")
 
 (require "req-utils.rkt")
@@ -147,9 +149,45 @@
 
 (define-syntax defun
   (lambda (stx)
-    (syntax-case stx ()
-      [(defun (storage ...) ret-type name (args ...) body) 
-       #'()])))
+    (syntax-parse stx
+      [func:fun-decl 
+       (let ([defs (syntax-local-make-definition-context)]
+             [ctx (generate-expand-context)]
+             [args (parse-arg-names #'func.args)]
+             [kw-args (parse-arg-names #'func.kw-args)]
+             [subs-decl-ids 
+              (lambda (decls ids)
+                (map 
+                 (lambda (decl id)
+                   (syntax-parse decl
+                     [var:var-decl 
+                      (with-syntax ([name id])
+                        #`(var.storage-classes var.type name #,@#'var.init-exp))]))
+                     decls ids))]
+             [contextualize-args
+              (lambda (args defs)
+                (let ([tmp-args 
+                       (map 
+                        (lambda (id) 
+                          (internal-definition-context-apply defs id)) args)])
+                  (map 
+                   (lambda (id tmp-id)
+                     (with-syntax ([tmp-id tmp-id])
+                       (syntax/loc id tmp-id))) 
+                   args tmp-args)))])
+         (syntax-local-bind-syntaxes args #f defs)
+         (syntax-local-bind-syntaxes kw-args #f defs)
+         (internal-definition-context-seal defs)
+         (no-expand
+            (with-syntax*
+                ([body (local-expand #'func.body (build-expand-context 'expression) #f defs)]
+                 [(arg ...) (subs-decl-ids 
+                             (syntax->list #'func.args)
+                             (contextualize-args args defs))]
+                 [(kw-arg ...) (subs-decl-ids
+                                (syntax->list #'func.kw-args)
+                                (contextualize-args kw-args defs))])
+              #'(defun func.storage-classes func.ret-type func.name (arg ... kw-arg ...) body))))])))
   #;((lambda (decl skels)
     (syntax-case decl (def defun)
       [(defun (storage ...) 
@@ -158,6 +196,27 @@
          #'(defun (storage ...) ret-type name (args ...) body))]
       [(def ((storage ...) type name init ...) 
          (next-name next-init ...) ...) decl])))
+
+;(define-for-syntax add-names-and-seal)
+
+(define-syntax translation-unit
+  (lambda (stx)
+    (syntax-parse stx
+        [(_ declaration ...+) 
+         (let ([top-level-defs (syntax-local-make-definition-context)]
+              [ctx (generate-expand-context)])
+           (with-syntax 
+               ([(declaration ...)
+                 (stx-map 
+                  (lambda (declaration) 
+                    (define out-form 
+                      (syntax-parse declaration
+                        [defun:fun-decl #'()]
+                        [def:decls #'()]))
+                    (set! top-level-defs (syntax-local-make-definition-context top-level-defs))
+                    out-form)
+                  #'(declaration ...))])
+             #'(declaration ...)))])))
 
 (define-for-syntax display-inert-body
   (lambda (tag contents) 
