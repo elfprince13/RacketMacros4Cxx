@@ -166,15 +166,9 @@
                      decls ids))]
              [contextualize-args
               (lambda (args defs)
-                (let ([tmp-args 
-                       (map 
-                        (lambda (id) 
-                          (internal-definition-context-apply defs id)) args)])
-                  (map 
-                   (lambda (id tmp-id)
-                     (with-syntax ([tmp-id tmp-id])
-                       (syntax/loc id tmp-id))) 
-                   args tmp-args)))])
+                (map 
+                   (lambda (id)
+                     (internal-definition-context-apply/loc defs id)) args))])
          (syntax-local-bind-syntaxes args #f defs)
          (syntax-local-bind-syntaxes kw-args #f defs)
          (internal-definition-context-seal defs)

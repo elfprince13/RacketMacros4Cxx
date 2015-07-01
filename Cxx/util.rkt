@@ -13,6 +13,11 @@
 
 (provide (all-defined-out))
 
+(define internal-definition-context-apply/loc
+  (lambda (def-ctx id) 
+    (with-syntax
+        ([tmp-id (internal-definition-context-apply def-ctx id)])
+      (syntax/loc id tmp-id))))
 
 (define parse-arg-names
   (lambda (stx) 
