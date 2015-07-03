@@ -19,6 +19,31 @@
         ([tmp-id (internal-definition-context-apply def-ctx id)])
       (syntax/loc id tmp-id))))
 
+(define expand-and-extend
+  (lambda (stx ctx defs [stoplist #f])
+    (values
+     (local-expand stx ctx stoplist defs)
+     (syntax-local-make-definition-context defs))))
+
+(define bind-and-seal
+  (lambda (defs id-list [bind-to #f])
+    (syntax-local-bind-syntaxes id-list bind-to defs)
+    (internal-definition-context-seal defs)))
+
+
+
+#;(define loop-decls-and-bodies 
+  (lambda (parser decl-handler body-handler)
+    (let*-values 
+        ([(decl-pat decl-extractor decl-responder) decl-handler]
+         [(body-pat body-expander) body-handler]
+         [loop
+          (lambda (stx)
+            (syntax-parse stx
+              [decl-pat ]
+              [body-pat ]))])
+      )))
+
 (define parse-arg-names
   (lambda (stx) 
     (syntax-case stx () 
@@ -29,6 +54,19 @@
             [decl:var-decl 
              #'decl.name])) 
         #'(args ...) )])))
+
+(define parse-def-names
+  (lambda (stx) 
+    (syntax-parse stx 
+      [vars:decls 
+       (map
+        (lambda (stx)
+          (syntax-parse stx
+            [var:var-decl #'var.name]
+            [(var:var-init) #'var.name]))
+        (cons
+         #'vars.var
+         (syntax->list #'vars.extra-vars)))])))
 
 #;(parse-arg-names #'((() int a (5)) (() float b = 6.0) (() char c)))
 
@@ -74,7 +112,10 @@
   (lambda (stx)
     (syntax-case stx ()
       [(macro args ...)
-       (with-syntax ([macro (datum->syntax #f (syntax->datum #'macro) #'macro #'macro)])
+       (with-syntax 
+           ([macro 
+             (syntax-local-introduce ; cancel marks to make it clear it's a keyword and not a local binding
+              (datum->syntax #f (syntax->datum #'macro) #'macro #'macro))]) ; strip the macro definition to stop expansion
          #'(macro args ...))])))
 
 #;(define-syntax print

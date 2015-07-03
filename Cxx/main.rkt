@@ -21,6 +21,6 @@
     (display (make-cpp-decl expanded-code))))
 
 (display (make-cpp-decl #'(defun (__global__) void kernelTest ((() int argc) (() char** argv)) 
-            (begin
+            (block
               (for ((() int i = 0) (0) (argc))
                 (call printf "done\\n"))))))

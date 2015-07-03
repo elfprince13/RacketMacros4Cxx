@@ -21,7 +21,10 @@
     (print tmp3))
   (swap i j))
 
-(defun (__global__) void kernelTest ((() int argc) (() char** argv)) 
-            (begin
-              (for ((() int i = 0) (0) (argc))
-                (call printf "done\\n"))))
+(defun (__global__) void kernelTest ((() int argc) (() char** argv))
+  (block
+   (def (() int j) (k = 0))
+   (while (!= j k)
+     (call printf "done\\n"))
+   (for ((() int i = 0) (0) (argc))
+     (call printf "done\\n"))))

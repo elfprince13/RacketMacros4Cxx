@@ -96,11 +96,38 @@
 (define-syntax while
   (lambda (stx)
     (syntax-case stx ()
-      [(while (cond ...) body) 
+      [(keyword (cond ...) body) 
        (with-syntax 
            ([(cond ...) (local-expand #'(cond ...) 'expression #f)]
             [body (local-expand #'body 'expression #f)])
-         #'(while (cond ...) body))])))
+         (no-expand #'(keyword (cond ...) body)))])))
+
+(define-syntax block
+  (lambda (stx)
+    (syntax-case stx ()
+      [(keyword stmts ... )
+       (with-syntax 
+           ([(stmts ...)
+             (let loop 
+               ([work (syntax->list #'(stmts ...))]
+                [defs (syntax-local-make-definition-context)]
+                [ctx (generate-expand-context)])
+               (if (null? work)
+                   null
+                   (let-values ([(head rest) (values (car work) (cdr work))])
+                     (let-values 
+                         ([(head defs)
+                           (syntax-parse head
+                             [vars:decls 
+                              (let-values ([(head defs) (expand-and-extend head ctx defs)])
+                                (bind-and-seal defs (parse-def-names #'vars))
+                                (values head defs))]
+                             [impl
+                              (values 
+                               (local-expand head ctx #f defs)
+                               defs)])])
+                       (cons head (loop rest defs ctx))))))])
+         (no-expand #'(keyword stmts ...)))])))
 
 #;(((
       [(for ((init ...) (cond ...) (update ...)) body) 
@@ -121,12 +148,6 @@
             (body (expand-stmt #'body skels))
             (else-body (expand-stmt #'else-body skels))) 
          #'(if cond body else else-body))]
-      [(begin stmts ... ) 
-       (begin 
-         #;(print "expanding begin") 
-         #;(newline ) 
-         (let ((stmts (map (curryr expand-stmt skels) (syntax->list #'(stmts ...)))))
-           (datum->syntax stmt (cons 'begin stmts))))]
       [(call func args ... ) 
        (begin 
          #;(print "expanding call") 
@@ -182,16 +203,21 @@
                                 (syntax->list #'func.kw-args)
                                 (contextualize-args kw-args defs))])
               #'(defun func.storage-classes func.ret-type func.name (arg ... kw-arg ...) body))))])))
-  #;((lambda (decl skels)
-    (syntax-case decl (def defun)
-      [(defun (storage ...) 
-         ret-type name (args ...) body)
-       (with-syntax ((body (expand-stmt #'body skels)))
-         #'(defun (storage ...) ret-type name (args ...) body))]
-      [(def ((storage ...) type name init ...) 
-         (next-name next-init ...) ...) decl])))
 
-;(define-for-syntax add-names-and-seal)
+(define-syntax def
+  (lambda (stx)
+    (syntax-parse stx
+      [vars:decls
+       (no-expand 
+        (with-syntax*
+            ([(vars ...) 
+              (map
+               #f
+               #f)] ; heavy-lifting goes here
+             [var (stx-car #'(vars ...))]
+             [(extra-vars ...) (stx-cdr #'(vars ...))]) 
+          #'(def var extra-vars ...)))])))
+
 
 (define-syntax translation-unit
   (lambda (stx)

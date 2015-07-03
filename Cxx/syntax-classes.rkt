@@ -12,7 +12,7 @@
   (pattern ((storage ...) (~var type expr) (~var init var-init) (~bind [storage-classes #'(storage ...)] [name #'init.name] [init-exp #'init.exp]))))
 
 (define-syntax-class decls
-  (pattern (def (~var var var-decl) extra-var:var-init ... (~bind [extra-vars #'(extra-var ...)]))))
+  (pattern (def (~var var var-decl) (extra-var:var-init) ... (~bind [extra-vars #'(extra-var ...)]))))
 
 ; we should set a fail-when on arg
 (define-syntax-class fun-decl
