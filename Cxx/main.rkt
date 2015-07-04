@@ -9,18 +9,25 @@
 ; Note: we don't handle [] array syntax yet, because [] are ()
 ; Follow-up: check 'paren-shape :)
 #;(let ((expanded-code 
-       (expand-decl
-        #'(defun (__global__) void kernelTest ((() int argc) (() char** argv)) 
-            (begin
-              (@ Loop1d (test-loop) ((i) (0) (argc)) 
-                 (call printf "%s\\n" (* ((+ argv (@ I () () ()))))))
-              (call printf "done\\n"))) init-skeletons-table)))
-  (begin
-    (print expanded-code)
-    (newline)
-    (display (make-cpp-decl expanded-code))))
+         (expand-decl
+          #'(defun (__global__) void kernelTest ((() int argc) (() char** argv)) 
+              (begin
+                (@ Loop1d (test-loop) ((i) (0) (argc)) 
+                   (call printf "%s\\n" (* ((+ argv (@ I () () ()))))))
+                (call printf "done\\n"))) init-skeletons-table)))
+    (begin
+      (print expanded-code)
+      (newline)
+      (display (make-cpp-decl expanded-code))))
 
-(display (make-cpp-decl #'(defun (__global__) void kernelTest ((() int argc) (() char** argv)) 
-            (block
-              (for ((() int i = 0) (0) (argc))
-                (call printf "done\\n"))))))
+(display 
+ (make-cpp-decl 
+  (datum->syntax 
+   #f 
+   '(defun (__global__) void kernelTest ((() int argc) (() char** argv))
+      (block
+       (def (() int j) (k = 0))
+       (while (!= j k)
+              (call printf "done\\n"))
+       (for ((() int i = 0) (0) (argc))
+         (call printf "done\\n")))))))

@@ -2,7 +2,8 @@
 
 (require syntax/parse
          syntax/stx
-         "syntax-classes.rkt")
+         "syntax-classes.rkt"
+         "util.rkt")
 
 (provide (all-defined-out))
 
@@ -37,7 +38,7 @@
 
 (define make-cpp-stmt 
   (lambda (stmt) 
-    (syntax-case stmt (if else for while begin call def @) 
+    (syntax-case stmt (if else for while block call def @) 
       [(for ((init ...) (cond ...) (update ...)) body) 
        (string-append
         "for (" (make-cpp-decl #'(init ...)) ";" (make-cpp-expr #'(cond ...)) ";" (make-cpp-expr #'(update ...)) ")"
@@ -51,22 +52,22 @@
       [(if (cond ...) body else else-body) 
        (string-append
         "if (" (make-cpp-expr #'(cond ...)) ") " (make-cpp-stmt #'body) " else " (make-cpp-stmt #'else-body))]
-      [(begin stmts ... ) 
+      [(block stmts ... ) 
        (begin
-         #;(print "printing begin") 
-         #;(newline) 
-         #;(print #'(begin stmts ...)) 
-         #;(newline)
+         (print "printing block") 
+         (newline) 
+         (print #'(block stmts ...)) 
+         (newline)
          (string-append 
           "{\n" (string-join (map make-cpp-stmt (syntax->list #'(stmts ...))) "") "}\n"))]
       [(def defs ...) 
        (string-append (make-cpp-decl stmt) ";\n")]
       [(expr ...) 
        (begin 
-         #;(print "no match found for ") 
-         #;(newline) 
-         #;(print stmt) 
-         #;(newline)
+         (print "no match found for ") 
+         (newline) 
+         (print stmt) 
+         (newline)
          (string-append (make-cpp-expr stmt) ";\n"))])))
 
 (define make-cpp-init 
@@ -74,13 +75,12 @@
     (syntax-parse stx
       [(init:var-init) 
        (let ([name (symbol->string (syntax->datum #'init.name))])
-         (if (stx-null? #'init.exp) 
-             name
-             (let ([head (stx-car #'init.exp)]
-                   [expr (stx-cdr #'init.exp)])
-               (if (eq? '= (syntax->datum head))
-                   (string-append name " = " (make-cpp-expr expr))
-                   (string-append name (make-cpp-expr #'init.exp))))))])))
+         (handle-init #'init.exp 
+                      (lambda () name)
+                      (lambda (eq-expr)
+                        (string-append name " = " (make-cpp-expr eq-expr)))
+                      (lambda (paren-expr)
+                        (string-append name (make-cpp-expr paren-expr)))))])))
 
 (define make-storage-classes
   (lambda (storage-syntax)

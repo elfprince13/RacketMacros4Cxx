@@ -175,21 +175,7 @@
        (let ([defs (syntax-local-make-definition-context)]
              [ctx (generate-expand-context)]
              [args (parse-arg-names #'func.args)]
-             [kw-args (parse-arg-names #'func.kw-args)]
-             [subs-decl-ids 
-              (lambda (decls ids)
-                (map 
-                 (lambda (decl id)
-                   (syntax-parse decl
-                     [var:var-decl 
-                      (with-syntax ([name id])
-                        #`(var.storage-classes var.type name #,@#'var.init-exp))]))
-                     decls ids))]
-             [contextualize-args
-              (lambda (args defs)
-                (map 
-                   (lambda (id)
-                     (internal-definition-context-apply/loc defs id)) args))])
+             [kw-args (parse-arg-names #'func.kw-args)])
          (syntax-local-bind-syntaxes args #f defs)
          (syntax-local-bind-syntaxes kw-args #f defs)
          (internal-definition-context-seal defs)
@@ -204,16 +190,21 @@
                                 (contextualize-args kw-args defs))])
               #'(defun func.storage-classes func.ret-type func.name (arg ... kw-arg ...) body))))])))
 
-(define-syntax def
-  (lambda (stx)
+(define-for-syntax def
+  (lambda (stx ctx defs)
     (syntax-parse stx
       [vars:decls
        (no-expand 
         (with-syntax*
             ([(vars ...) 
               (map
-               #f
-               #f)] ; heavy-lifting goes here
+               (lambda (stx)
+                 (syntax-parse stx
+                   [decl:var-decl '()]
+                   [(init:var-init) '()]))
+               (cons
+                #'vars.var
+                (syntax->list #'vars.extra-vars)))] ; heavy-lifting goes here
              [var (stx-car #'(vars ...))]
              [(extra-vars ...) (stx-cdr #'(vars ...))]) 
           #'(def var extra-vars ...)))])))

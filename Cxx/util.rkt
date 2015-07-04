@@ -33,16 +33,32 @@
 
 
 #;(define loop-decls-and-bodies 
-  (lambda (parser decl-handler body-handler)
-    (let*-values 
-        ([(decl-pat decl-extractor decl-responder) decl-handler]
-         [(body-pat body-expander) body-handler]
-         [loop
-          (lambda (stx)
-            (syntax-parse stx
-              [decl-pat ]
-              [body-pat ]))])
-      )))
+    (lambda (parser decl-handler body-handler)
+      (let*-values 
+          ([(decl-pat decl-extractor decl-responder) decl-handler]
+           [(body-pat body-expander) body-handler]
+           [loop
+            (lambda (stx)
+              (syntax-parse stx
+                [decl-pat ]
+                [body-pat ]))])
+        )))
+
+(define contextualize-args
+  (lambda (args defs)
+    (map 
+     (lambda (id)
+       (internal-definition-context-apply/loc defs id)) args)))
+
+(define subs-decl-ids
+  (lambda (decls ids)
+    (map 
+     (lambda (decl id)
+       (syntax-parse decl
+         [var:var-decl 
+          (with-syntax ([name id])
+            #`(var.storage-classes var.type name #,@#'var.init-exp))]))
+     decls ids)))
 
 (define parse-arg-names
   (lambda (stx) 
@@ -117,6 +133,18 @@
              (syntax-local-introduce ; cancel marks to make it clear it's a keyword and not a local binding
               (datum->syntax #f (syntax->datum #'macro) #'macro #'macro))]) ; strip the macro definition to stop expansion
          #'(macro args ...))])))
+
+(define-syntax handle-init
+  (lambda (stx)
+    (syntax-case stx ()
+      [(handle-init init-exp null-case eq-case paren-case)
+       #'(if (stx-null? init-exp)
+             (null-case)
+             (let ([head (stx-car init-exp)]
+                   [exp (stx-cdr init-exp)])
+               (if (eq? '= (syntax->datum head))
+                   (eq-case exp)
+                   (paren-case init-exp))))])))
 
 #;(define-syntax print
     (lambda (stx)
