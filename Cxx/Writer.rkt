@@ -41,7 +41,7 @@
     (syntax-case stmt (if else for while block call def @) 
       [(for ((init ...) (cond ...) (update ...)) body) 
        (string-append
-        "for (" (make-cpp-decl #'(init ...)) ";" (make-cpp-expr #'(cond ...)) ";" (make-cpp-expr #'(update ...)) ")"
+        "for (" (make-cpp-decl #'(init ...) #f) ";" (make-cpp-expr #'(cond ...)) ";" (make-cpp-expr #'(update ...)) ")"
         (make-cpp-stmt #'body))]
       [(while (cond ...) body) 
        (string-append
@@ -54,46 +54,58 @@
         "if (" (make-cpp-expr #'(cond ...)) ") " (make-cpp-stmt #'body) " else " (make-cpp-stmt #'else-body))]
       [(block stmts ... ) 
        (begin
-         (print "printing block") 
-         (newline) 
-         (print #'(block stmts ...)) 
-         (newline)
+         ;(print "printing block") 
+         ;(newline) 
+         ;(print #'(block stmts ...)) 
+         ;(newline)
          (string-append 
           "{\n" (string-join (map make-cpp-stmt (syntax->list #'(stmts ...))) "") "}\n"))]
       [(def defs ...) 
-       (string-append (make-cpp-decl stmt) ";\n")]
+       (make-cpp-decl stmt)]
       [(expr ...) 
        (begin 
-         (print "no match found for ") 
-         (newline) 
-         (print stmt) 
-         (newline)
+         ;(print "no match found for ") 
+         ;(newline) 
+         ;(print stmt) 
+         ;(newline)
          (string-append (make-cpp-expr stmt) ";\n"))])))
 
 (define make-cpp-init 
   (lambda (stx)
     (syntax-parse stx
-      [(init:var-init) 
-       (let ([name (string-from-stx #'init.name)])
-         (handle-init #'init.exp 
-                      (lambda () name)
-                      (lambda (eq-expr)
-                        (string-append name " = " (make-cpp-expr eq-expr)))
-                      (lambda (paren-expr)
-                        (string-append name (make-cpp-expr paren-expr)))))])))
+      [(init:var-init)
+       (begin 
+         ;(display "var-init: ") (display #'init) (newline)
+         (let ([name (string-from-stx #'init.name)])
+           (handle-init #'init.exp 
+                        (lambda () name)
+                        (lambda (eq-expr)
+                          (string-append name " = " (make-cpp-expr eq-expr)))
+                        (lambda (paren-expr)
+                          (string-append name (make-cpp-expr paren-expr))))))])))
+
+(define make-cpp-single-decl
+  (lambda (stx)
+    (syntax-parse stx
+      [var:var-decl 
+       (begin 
+         ;(display "var-decl: ") (display #'var) (newline)
+         (string-append
+          (make-storage-classes #'var.storage-classes)
+          (string-from-stx #'var.type) " " (make-cpp-init #'var.init)))])))
 
 (define make-storage-classes
   (lambda (storage-syntax)
     (string-join 
-         (stx-map string-from-stx storage-syntax) " " #:after-last (if (stx-null? storage-syntax ) "" " "))))
+     (stx-map string-from-stx storage-syntax) " " #:after-last (if (stx-null? storage-syntax ) "" " "))))
 
 (define make-attributes make-storage-classes)
 (define make-qualifiers make-storage-classes)
 (define make-type make-storage-classes)
-    
 
 (define make-cpp-decl 
-  (lambda (stx)
+  (lambda (stx [assume-decls-stmt #t])
+    ;(display "make-cpp-decl got: ") (display stx) (display assume-decls-stmt) (newline)
     (syntax-parse stx
       [typedef:typedef-decl
        (string-append
@@ -113,28 +125,30 @@
              (string-join (stx-map make-cpp-decl #'record.decls))
              "}"))
         
-       ";\n")]
+        ";\n")]
       [defun:fun-decl
-       (string-append 
-        (make-storage-classes #'defun.storage-classes)
-        (string-from-stx #'defun.ret-type) " "
-        (string-from-stx #'defun.name) "(" (string-join (map make-cpp-decl (syntax->list #'defun.args)) ", ") ")" 
-        (make-cpp-stmt #'defun.body))]
-      [var:var-decl 
-       (string-append
-        (make-storage-classes #'var.storage-classes)
-        (string-from-stx #'var.type) " " (make-cpp-init #'var.init))]
+        (string-append 
+         (make-storage-classes #'defun.storage-classes)
+         (string-from-stx #'defun.ret-type) " "
+         (string-from-stx #'defun.name) "(" (string-join (map make-cpp-single-decl (syntax->list #'defun.args)) ", ") ")" 
+         (make-cpp-stmt #'defun.body))]
       [def:decls 
-       (string-append
-        (make-cpp-decl #'def.var) 
-        (let ((extra-decls (syntax->list #'def.extra-vars)))
-          (string-join
-           (map make-cpp-init extra-decls) ", "
-           #:before-first (if (eq? 0 (length extra-decls)) "" ", "))))])))
+        (begin 
+          ;(display "decls: ") (display #'def) (newline)
+          (string-append
+           (make-cpp-single-decl #'def.var) 
+           (let ((extra-decls (syntax->list #'def.extra-vars)))
+             (string-join
+              (map make-cpp-init extra-decls) ", "
+              #:before-first (if (eq? 0 (length extra-decls)) "" ", ")))
+           (if assume-decls-stmt
+               ";\n"
+               "")))])))
 
 (define make-cpp-tu
   (lambda (stx)
-    (display "emitting C++-proper\n")
+    (display "// emitting C++-proper via Racket's #Cxx\n")
+    ;(display stx) (newline)
     (syntax-parse stx
       [unit:tu-stx
        (display (string-join (stx-map make-cpp-decl #'unit.items)))])))

@@ -8,7 +8,7 @@
 
 (define-splicing-syntax-class var-init
   (pattern (~seq (~var name id) (~bind [exp #'()])))
-  (pattern (~seq (~var name id) = init-exp:expr ...+ (~bind [exp #'(= init-exp ...)])))
+  (pattern (~seq (~var name id) (~datum =) init-exp:expr ...+ (~bind [exp #'(= init-exp ...)])))
   (pattern (~seq (~var name id) ( init-exp:expr ...+) (~bind [exp #'((init-exp ...))]))))
 
 (define-syntax-class typedef-decl
@@ -23,13 +23,13 @@
   (pattern ((storage ...) (~var type expr) (~var init var-init) attr:c-attribute ... (~bind [storage-classes #'(storage ...)] [name #'init.name] [init-exp #'init.exp] [attributes #'(attr ...)]))))
 
 (define-syntax-class decls
-  (pattern (def (~var var var-decl) (extra-var:var-init) ... (~bind [extra-vars #'(extra-var ...)]))))
+  (pattern ((~datum def) (~var var var-decl) (extra-var:var-init) ... (~bind [extra-vars #'(extra-var ...)]))))
 
 ; we should set a fail-when on arg
 (define-syntax-class fun-decl
-  (pattern (defun (storage ...) (~var ret-type expr) (~var name id) (arg:var-decl ... kw-arg:var-decl ...) attr:c-attribute ...  (~var body expr) 
+  (pattern ((~datum defun) (storage ...) (~var ret-type expr) (~var name id) (arg:var-decl ... kw-arg:var-decl ...) attr:c-attribute ...  (~var body expr) 
              (~bind [storage-classes #'(storage ...)] [args #'(arg ...)] [kw-args #'(kw-arg ...)] [attributes #'(attr ...)])))
-  (pattern (defun (storage ...) (~var ret-type expr) (~var name id) (arg:var-decl ... kw-arg:var-decl ...) attr:c-attribute ... 
+  (pattern ((~datum defun) (storage ...) (~var ret-type expr) (~var name id) (arg:var-decl ... kw-arg:var-decl ...) attr:c-attribute ... 
              (~bind [storage-classes #'(storage ...)] [args #'(arg ...)] [kw-args #'(kw-arg ...)] [attributes #'(attr ...)] [body #'()])))) ; forward declaration
 
 
@@ -40,4 +40,4 @@
   (pattern item:fun-decl))
 
 (define-syntax-class tu-stx
-  (pattern (translation-unit item:tu-item ... (~bind [items #'(item ...)]))))
+  (pattern ((~datum translation-unit) item:tu-item ... (~bind [items #'(item ...)]))))

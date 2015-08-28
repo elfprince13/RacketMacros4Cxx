@@ -1,13 +1,13 @@
 #lang racket
 
 (require (for-syntax macro-debugger/emit
-         racket/format
-         racket/dict
-         racket/syntax
-         syntax/context
-         syntax/id-table
-         syntax/parse
-         syntax/stx))
+                     racket/format
+                     racket/dict
+                     racket/syntax
+                     syntax/context
+                     syntax/id-table
+                     syntax/parse
+                     syntax/stx))
 
 (require (for-syntax "util.rkt"
                      "syntax-classes.rkt"))
@@ -81,18 +81,18 @@
 
 
 #;(define expand-stmt 
-  (lambda (stmt skels) 
-    (syntax-case stmt (if else for while begin call def @) 
-      [(@ SkelKind (name ...) (params ...) body) 
-       (begin 
-         #;(print "expanding skeleton")
-         #;(newline)
-         (let ((expansion (((lookup-skeleton skels (syntax->datum #'SkelKind)) stmt skels) 
-                           (hash-ref simple-external-params-table (list (syntax->datum #'SkelKind) (syntax->datum #'(name ...)))))))
-           (begin
-             ;(print (list "re-expanding with " (skeleton-expansion-body expansion) (skeleton-expansion-table expansion))) (newline)
-             (expand-stmt (skeleton-expansion-body expansion) (skeleton-expansion-table expansion)))))] ; The expansion process may have introduced new macros, so expand those too
-      )))
+    (lambda (stmt skels) 
+      (syntax-case stmt (if else for while begin call def @) 
+        [(@ SkelKind (name ...) (params ...) body) 
+         (begin 
+           #;(print "expanding skeleton")
+           #;(newline)
+           (let ((expansion (((lookup-skeleton skels (syntax->datum #'SkelKind)) stmt skels) 
+                             (hash-ref simple-external-params-table (list (syntax->datum #'SkelKind) (syntax->datum #'(name ...)))))))
+             (begin
+               ;(print (list "re-expanding with " (skeleton-expansion-body expansion) (skeleton-expansion-table expansion))) (newline)
+               (expand-stmt (skeleton-expansion-body expansion) (skeleton-expansion-table expansion)))))] ; The expansion process may have introduced new macros, so expand those too
+        )))
 
 (define-syntax while
   (lambda (stx)
@@ -102,6 +102,10 @@
            ([(cond ...) (local-expand #'(cond ...) 'expression #f)]
             [body (local-expand #'body 'expression #f)])
          (no-expand #'(keyword (cond ...) body)))])))
+
+(define-syntax @
+  (lambda (stx)
+    (no-expand stx)))
 
 (define-syntax block
   (lambda (stx)
@@ -131,49 +135,83 @@
          (no-expand #'(keyword stmts ...)))])))
 
 #;(((
-      [(for ((init ...) (cond ...) (update ...)) body) 
-       (with-syntax
-           ((init (expand-stmt #'(init ...) skels))
-            (cond (expand-stmt #'(cond ...) skels))
-            (update (expand-stmt #'(update ...) skels))
-            (body (expand-stmt #'body skels)))
-         #'(for (init cond update) body))]
-      [(if (cond ...) body) 
-       (with-syntax  
-           ((cond (expand-stmt #'(cond ...) skels))
-            (body (expand-stmt #'body skels))) 
-         #'(if cond body))]
-      [(if (cond ...) body else else-body) 
-       (with-syntax 
-           ((cond (expand-stmt #'(cond ...) skels))
-            (body (expand-stmt #'body skels))
-            (else-body (expand-stmt #'else-body skels))) 
-         #'(if cond body else else-body))]
-      [(call func args ... ) 
-       (begin 
-         #;(print "expanding call") 
-         #;(newline ) 
-         (let ((args (map (curryr expand-stmt skels) (syntax->list #'(args ...)))))
-           (with-syntax ((func (expand-stmt #'func skels)))
-             #`(call func #,@(datum->syntax stmt args)))))]
-      [(def defs ...) 
-       (expand-decl stmt skels)]
-      [(expr ...) 
-       (begin
-         #;(print "no match for ") 
-         #;(newline)
-         #;(print stmt)
-         #;(newline)
-         (let ((expr-components 
-                (map (curryr expand-stmt skels) (syntax->list #'(expr ...)))))
-           (datum->syntax stmt expr-components)))]
-      [any #'any]))) 
+     [(for ((init ...) (cond ...) (update ...)) body) 
+      (with-syntax
+          ((init (expand-stmt #'(init ...) skels))
+           (cond (expand-stmt #'(cond ...) skels))
+           (update (expand-stmt #'(update ...) skels))
+           (body (expand-stmt #'body skels)))
+        #'(for (init cond update) body))]
+     [(if (cond ...) body) 
+      (with-syntax  
+          ((cond (expand-stmt #'(cond ...) skels))
+           (body (expand-stmt #'body skels))) 
+        #'(if cond body))]
+     [(if (cond ...) body else else-body) 
+      (with-syntax 
+          ((cond (expand-stmt #'(cond ...) skels))
+           (body (expand-stmt #'body skels))
+           (else-body (expand-stmt #'else-body skels))) 
+        #'(if cond body else else-body))]
+     [(call func args ... ) 
+      (begin 
+        #;(print "expanding call") 
+        #;(newline ) 
+        (let ((args (map (curryr expand-stmt skels) (syntax->list #'(args ...)))))
+          (with-syntax ((func (expand-stmt #'func skels)))
+            #`(call func #,@(datum->syntax stmt args)))))]
+     [(def defs ...) 
+      (expand-decl stmt skels)]
+     [(expr ...) 
+      (begin
+        #;(print "no match for ") 
+        #;(newline)
+        #;(print stmt)
+        #;(newline)
+        (let ((expr-components 
+               (map (curryr expand-stmt skels) (syntax->list #'(expr ...)))))
+          (datum->syntax stmt expr-components)))]
+     [any #'any]))) 
+
+(define-for-syntax init-var-to-context
+  (lambda (stx ctx defs)
+    (syntax-parse stx
+      [(var:var-init)
+       (let*-values ([(name) #'var.name]
+                     [(name defs expr) 
+                      (handle-init #'var.exp
+                                   (lambda () (values name defs #'() ))
+                                   (lambda (eq-expr) 
+                                     (let-values 
+                                         ([(eq-expr defs)
+                                           (expand-and-extend eq-expr ctx defs)])
+                                       (bind-and-seal defs (list name))
+                                       (values (internal-definition-context-apply/loc defs name) 
+                                               defs 
+                                               (with-syntax 
+                                                   ([eq-expr eq-expr])
+                                                 #'(= . eq-expr)))))
+                                   (lambda (paren-expr) 
+                                     (let-values 
+                                         ([(paren-expr defs)
+                                           (expand-and-extend paren-expr ctx defs)])
+                                       (bind-and-seal defs (list name))
+                                       (values (internal-definition-context-apply/loc defs name) 
+                                               defs 
+                                               (with-syntax 
+                                                   ([paren-expr paren-expr])
+                                                 #'paren-expr)))))])
+         (values defs
+                 (with-syntax
+                     ([name name]
+                      [expr expr])
+                   #'(name . expr))))])))
 
 (define-for-syntax defun
   (lambda (stx ctx defs)
     (syntax-parse stx
       [func:fun-decl 
-       (let ([defs (syntax-local-make-definition-context)]
+       (let ([defs (syntax-local-make-definition-context defs)]
              [ctx (generate-expand-context)]
              [args (parse-arg-names #'func.args)]
              [kw-args (parse-arg-names #'func.kw-args)])
@@ -181,59 +219,77 @@
          (syntax-local-bind-syntaxes kw-args #f defs)
          (internal-definition-context-seal defs)
          (no-expand
-            (with-syntax*
-                ([body (local-expand #'func.body (build-expand-context 'expression) #f defs)]
-                 [(arg ...) (subs-decl-ids 
-                             (syntax->list #'func.args)
-                             (contextualize-args args defs))]
-                 [(kw-arg ...) (subs-decl-ids
-                                (syntax->list #'func.kw-args)
-                                (contextualize-args kw-args defs))])
-              #'(defun func.storage-classes func.ret-type func.name (arg ... kw-arg ...) body))))])))
+          (with-syntax*
+              ([f-name (internal-definition-context-apply/loc defs #'func.name)]
+               [body (local-expand #'func.body (build-expand-context 'expression) #f defs)]
+               [(arg ...) 
+                (subs-decl-ids 
+                 (syntax->list #'func.args)
+                 (contextualize-args args defs))]
+               [(kw-arg ...) 
+                (subs-decl-ids
+                 (syntax->list #'func.kw-args)
+                 (contextualize-args kw-args defs))])
+            #'(defun func.storage-classes func.ret-type f-name (arg ... kw-arg ...) body))))])))
 
 (define-for-syntax def
   (lambda (stx ctx defs)
     (syntax-parse stx
       [vars:decls
-       (no-expand 
-        (with-syntax*
-            ([(vars ...) 
-              (map
-               (lambda (stx)
-                 (syntax-parse stx
-                   [decl:var-decl '()]
-                   [(init:var-init) '()]))
-               (cons
-                #'vars.var
-                (syntax->list #'vars.extra-vars)))] ; heavy-lifting goes here
-             [var (stx-car #'(vars ...))]
-             [(extra-vars ...) (stx-cdr #'(vars ...))]) 
-          #'(def var extra-vars ...)))])))
+       (values 
+        defs 
+        (no-expand 
+         (with-syntax*
+             ([(vars ...) 
+               (map
+                (lambda (stx)
+                  (let-values 
+                      ([(new-defs new-stx)
+                        (syntax-parse stx
+                          [decl:var-decl
+                           (let-values 
+                               ([(new-defs new-init) (init-var-to-context #'decl.init ctx defs)])
+                             (values 
+                              new-defs 
+                              #`(decl.storage-classes decl.type #,@new-init #,@#'decl.attributes)))]
+                          [(init:var-init) (init-var-to-context #'init ctx defs)])])
+                    (set! defs new-defs)
+                    new-stx))
+                (cons
+                 #'vars.var
+                 (syntax->list #'vars.extra-vars)))] ; heavy-lifting goes here
+              [var (stx-car #'(vars ...))]
+              [(extra-vars ...) (stx-cdr #'(vars ...))]) 
+           #'(def var extra-vars ...))))])))
 
 
 (define-syntax translation-unit
   (lambda (stx)
     (syntax-parse stx
-        [unit:tu-stx
-         (let ([top-level-defs (syntax-local-make-definition-context)]
-              [ctx (generate-expand-context)])
-           (with-syntax 
-               ([(declaration ...)
-                 (stx-map 
-                  (lambda (declaration) 
-                    (define out-form 
-                      (syntax-parse declaration
-                        [record:record-decl #'record]
-                        [typedef:typedef-decl #'typedef]
-                        [defun:fun-decl #'()]
-                        [vdefs:decls 
-                          (let-values ([(new-defs expanded-stx) (def #'vdefs ctx top-level-defs)])
-                            (set! top-level-defs new-defs)
-                            expanded-stx)]))
-                    (set! top-level-defs (syntax-local-make-definition-context top-level-defs))
-                    out-form)
-                  #'unit.items)])
-             (no-expand #'(translation-unit declaration ...))))])))
+      [unit:tu-stx
+       (let ([top-level-defs (syntax-local-make-definition-context)]
+             [ctx (generate-expand-context)])
+         (with-syntax 
+             ([(declaration ...)
+               (stx-map 
+                (lambda (declaration) 
+                  (define out-form 
+                    (syntax-parse declaration
+                      [record:record-decl #'record]
+                      [typedef:typedef-decl #'typedef]
+                      [vdefun:fun-decl 
+                       (let ([new-defs (syntax-local-make-definition-context top-level-defs)])
+                         (bind-and-seal new-defs (list #'vdefun.name))
+                         (set! top-level-defs new-defs)
+                         (defun #'vdefun ctx top-level-defs))]
+                      [vdefs:decls 
+                       (let-values ([(new-defs expanded-stx) (def #'vdefs ctx top-level-defs)])
+                         (set! top-level-defs new-defs)
+                         expanded-stx)]))
+                  (set! top-level-defs (syntax-local-make-definition-context top-level-defs))
+                  out-form)
+                #'unit.items)])
+           (no-expand #'(translation-unit declaration ...))))])))
 
 (define-for-syntax display-inert-body
   (lambda (tag contents) 
@@ -242,9 +298,8 @@
                     (stx-map 
                      (lambda (stx) 
                        (let ([expanded (local-expand stx 'top-level #f)])
-                         ;(make-cpp-tu 
-                          ((walk-expr-safe-ids (make-bound-id-table)) expanded)
-                          ;)
+                         (make-cpp-tu expanded)
+                         #;((walk-expr-safe-ids (make-bound-id-table)) expanded)
                          )) 
                      contents)]
                    [unpacked #'(apply values 'contents)]) 
