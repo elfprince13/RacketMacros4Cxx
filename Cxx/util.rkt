@@ -123,6 +123,9 @@
                  (safe-print-id #'atom))]))]) 
       walk-expr)))
 
+(define string-from-stx 
+ (lambda (stx)
+   (symbol->string (syntax->datum stx))))
 
 (define no-expand
   (lambda (stx)

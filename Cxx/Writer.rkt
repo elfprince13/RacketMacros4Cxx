@@ -74,7 +74,7 @@
   (lambda (stx)
     (syntax-parse stx
       [(init:var-init) 
-       (let ([name (symbol->string (syntax->datum #'init.name))])
+       (let ([name (string-from-stx #'init.name)])
          (handle-init #'init.exp 
                       (lambda () name)
                       (lambda (eq-expr)
@@ -85,23 +85,45 @@
 (define make-storage-classes
   (lambda (storage-syntax)
     (string-join 
-         (map symbol->string 
-              (syntax->datum storage-syntax)) " " #:after-last " ")))
+         (stx-map string-from-stx storage-syntax) " " #:after-last (if (stx-null? storage-syntax ) "" " "))))
+
+(define make-attributes make-storage-classes)
+(define make-qualifiers make-storage-classes)
+(define make-type make-storage-classes)
     
 
 (define make-cpp-decl 
   (lambda (stx)
     (syntax-parse stx
+      [typedef:typedef-decl
+       (string-append
+        "typedef "
+        (make-type #'typedef.type-terms)
+        ";\n")]
+      [record:record-decl
+       (string-append
+        (make-qualifiers #'record.qualifiers)
+        (string-from-stx #'record.kind) " "
+        (string-from-stx #'record.name) " "
+        (make-attributes #'record.attributes)
+        (if (stx-null? #'record.decls)
+            ""
+            (string-append
+             "{\n"
+             (string-join (stx-map make-cpp-decl #'record.decls))
+             "}"))
+        
+       ";\n")]
       [defun:fun-decl
        (string-append 
         (make-storage-classes #'defun.storage-classes)
-        (symbol->string (syntax->datum #'defun.ret-type)) " "
-        (symbol->string (syntax->datum #'defun.name)) "(" (string-join (map make-cpp-decl (syntax->list #'defun.args)) ", ") ")" 
+        (string-from-stx #'defun.ret-type) " "
+        (string-from-stx #'defun.name) "(" (string-join (map make-cpp-decl (syntax->list #'defun.args)) ", ") ")" 
         (make-cpp-stmt #'defun.body))]
       [var:var-decl 
        (string-append
         (make-storage-classes #'var.storage-classes)
-        (symbol->string (syntax->datum #'var.type)) " " (make-cpp-init #'var.init))]
+        (string-from-stx #'var.type) " " (make-cpp-init #'var.init))]
       [def:decls 
        (string-append
         (make-cpp-decl #'def.var) 
@@ -109,3 +131,10 @@
           (string-join
            (map make-cpp-init extra-decls) ", "
            #:before-first (if (eq? 0 (length extra-decls)) "" ", "))))])))
+
+(define make-cpp-tu
+  (lambda (stx)
+    (display "emitting C++-proper\n")
+    (syntax-parse stx
+      [unit:tu-stx
+       (display (string-join (stx-map make-cpp-decl #'unit.items)))])))

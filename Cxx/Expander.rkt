@@ -12,6 +12,7 @@
 (require (for-syntax "util.rkt"
                      "syntax-classes.rkt"))
 (require "../LoopTiles.rkt")
+(require (for-syntax "Writer.rkt"))
 
 (require "req-utils.rkt")
 (provide (all-defined-out))
@@ -168,8 +169,8 @@
            (datum->syntax stmt expr-components)))]
       [any #'any]))) 
 
-(define-syntax defun
-  (lambda (stx)
+(define-for-syntax defun
+  (lambda (stx ctx defs)
     (syntax-parse stx
       [func:fun-decl 
        (let ([defs (syntax-local-make-definition-context)]
@@ -213,7 +214,7 @@
 (define-syntax translation-unit
   (lambda (stx)
     (syntax-parse stx
-        [(_ declaration ...+) 
+        [unit:tu-stx
          (let ([top-level-defs (syntax-local-make-definition-context)]
               [ctx (generate-expand-context)])
            (with-syntax 
@@ -222,12 +223,17 @@
                   (lambda (declaration) 
                     (define out-form 
                       (syntax-parse declaration
+                        [record:record-decl #'record]
+                        [typedef:typedef-decl #'typedef]
                         [defun:fun-decl #'()]
-                        [def:decls #'()]))
+                        [vdefs:decls 
+                          (let-values ([(new-defs expanded-stx) (def #'vdefs ctx top-level-defs)])
+                            (set! top-level-defs new-defs)
+                            expanded-stx)]))
                     (set! top-level-defs (syntax-local-make-definition-context top-level-defs))
                     out-form)
-                  #'(declaration ...))])
-             #'(declaration ...)))])))
+                  #'unit.items)])
+             (no-expand #'(translation-unit declaration ...))))])))
 
 (define-for-syntax display-inert-body
   (lambda (tag contents) 
@@ -236,7 +242,10 @@
                     (stx-map 
                      (lambda (stx) 
                        (let ([expanded (local-expand stx 'top-level #f)])
-                         ((walk-expr-safe-ids (make-bound-id-table)) expanded))) 
+                         ;(make-cpp-tu 
+                          ((walk-expr-safe-ids (make-bound-id-table)) expanded)
+                          ;)
+                         )) 
                      contents)]
                    [unpacked #'(apply values 'contents)]) 
       (if tag 

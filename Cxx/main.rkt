@@ -20,14 +20,14 @@
       (newline)
       (display (make-cpp-decl expanded-code))))
 
-(display 
+#;(display 
  (make-cpp-decl 
   (datum->syntax 
    #f 
-   '(defun (__global__) void kernelTest ((() int argc) (() char** argv))
-      (block
-       (def (() int j) (k = 0))
-       (while (!= j k)
-              (call printf "done\\n"))
-       (for ((() int i = 0) (0) (argc))
-         (call printf "done\\n")))))))
+   '(defun () void kernelTest ((() int argc) (() char** argv)) __attribute__((__global__))
+  (block
+   (def (() int j) (k = 0))
+   (while (!= j k)
+     (call printf "done\\n"))
+   (for ((() int i = 0) (0) (argc))
+     (call printf "done\\n")))))))
