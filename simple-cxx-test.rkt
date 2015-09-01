@@ -3,7 +3,7 @@
 ; and use Source Location information to check which identifiers are original and which are introduced
 ; Writer probably wants to use pretty print
 
-(translation-unit
+#;(translation-unit
  
  #;(def (() union {
     (() (char (!) [128]) __mbstate8)
@@ -37,19 +37,11 @@
     (def (() (int (!)) argc = 100))
     (def (() (char * (!)) data = (call malloc argc)))
     (if (== ((% argc 4)) 0) (block
-        (@ Loop1d (test_loop) (
-            [@ I]
-            [= 0]
-            [= argc]
-            )
+        (@ Loop1d (test_loop) ([@ I][= 0][= argc])
             (block
                 (def (() (int (!)) i))
-                (@ I () (
-                    [= i]
-                  )
-                    ()
-                )
-                (data[i] ++)
+                (@ I (test_itr) ([= i])())
+                ((* ((+ data i))) ++)
             )
         )
         (return 0)    ) else (block

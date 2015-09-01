@@ -36,32 +36,46 @@
 
 (struct skeleton-expansion (body table))
 
+(define-for-syntax macroize-skel-kind
+  (lambda (skel-kind)
+    (format-id
+     skel-kind 
+     "@~a" 
+     (syntax-e skel-kind) #:source skel-kind #:props skel-kind)))
+
 ; Grid > Block > Warp > Thread-Loop > Unroll
 ; 
 (define-for-syntax InitSkelTable 
   (hash 'Loop1d 
         #'(lambda (skel) 
-          (syntax-parse skel
-            [(_ (name:id) args:skeleton-args child:cxx-stmt)
-             #'"A wild skeleton appeared"]))))
+            (syntax-parse skel
+              [(_ (name:id) args:skeleton-args child:cxx-stmt)
+               (let*
+                   ([defs (syntax-local-make-definition-context)]
+                    [ctx (generate-expand-context)]
+                    [itr-id #'j]
+                    [itr-skel-kind (stx-car (stx-cdr (stx-car #'args)))]
+                    [itr-macro (macroize-skel-kind itr-skel-kind)])
+                 (syntax-local-bind-syntaxes
+                  (list itr-macro)
+                  (local-transformer-expand 
+                   (with-syntax ([itr-id itr-id])
+                   #'(lambda (stx)
+                       (syntax-parse stx
+                         [(_ (name:id) inner-args:skeleton-args child:cxx-stmt)
+                          (with-syntax 
+                              ([itr-id #'itr-id]
+                               [local-id (stx-car (stx-cdr (stx-car #'inner-args)))])
+                            #'(= local-id itr-id))])))
+                   'expression null) 
+                  defs)
+                 (internal-definition-context-seal defs)
+                 (with-syntax 
+                     ([itr-id itr-id]
+                      [child (local-expand #'child ctx #f defs)])
+                   #'(for ((def (() (int (!)) itr-id = 0)) (< itr-id 5) (++ itr-id)) child)))]))))
 (define-for-syntax InitSkelIds
   (make-hash))
-
-
-#;(define expand-stmt 
-    (lambda (stmt skels) 
-      (syntax-case stmt (if else for while begin call def @) 
-        [(@ SkelKind (name ...) (params ...) body) 
-         (begin 
-           #;(print "expanding skeleton")
-           #;(newline)
-           (let ((expansion (((lookup-skeleton skels (syntax->datum #'SkelKind)) stmt skels) 
-                             (hash-ref simple-external-params-table (list (syntax->datum #'SkelKind) (syntax->datum #'(name ...)))))))
-             (begin
-               ;(print (list "re-expanding with " (skeleton-expansion-body expansion) (skeleton-expansion-table expansion))) (newline)
-               (expand-stmt (skeleton-expansion-body expansion) (skeleton-expansion-table expansion)))))] ; The expansion process may have introduced new macros, so expand those too
-        )))
-
 
 
 (define-syntax @
@@ -69,7 +83,9 @@
     (syntax-parse stx 
       [skel:cxx-@
        (with-syntax
-           ([skel-macro (syntax-local-introduce (hash-ref InitSkelIds 'Loop1d)) #;(syntax-local-value (syntax-local-introduce (format-id #'skel.kind "@~a" (syntax-e #'skel.kind) #:source #'skel.kind #:props #'skel.kind)))])
+           ([skel-macro (hash-ref InitSkelIds (syntax->datum #'skel.kind)
+                                  (lambda () (macroize-skel-kind #'skel.kind))) 
+                        #;(syntax-local-value (syntax-local-introduce (macroize-skel-kind #'skel.kind)))])
          (local-expand #'(skel-macro (skel.name) skel.args skel.child) 'expression #f))]
       )))
 
@@ -81,6 +97,15 @@
            ([cond (local-expand #'stmt.cond 'expression #f)]
             [child (local-expand #'stmt.child 'expression #f)])
          (no-expand #'(while cond child)))])))
+
+(define-syntax for
+  (lambda (stx)
+    (syntax-parse stx
+      [stmt:cxx-for
+       (no-expand 
+        (syntax-parse #'stmt.init
+          [init:decls stx]
+          [init:cxx-expr stx]))])))
 
 (define-syntax -if
   (lambda (stx)
