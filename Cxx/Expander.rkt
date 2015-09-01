@@ -103,9 +103,10 @@
             [body (local-expand #'body 'expression #f)])
          (no-expand #'(keyword (cond ...) body)))])))
 
-(define-syntax @
+#;(define-syntax @
   (lambda (stx)
-    (no-expand stx)))
+    (syntax-case stmt ()
+      )))
 
 (define-syntax block
   (lambda (stx)
@@ -240,7 +241,8 @@
         defs 
         (no-expand 
          (with-syntax*
-             ([(vars ...) 
+             ([(extra-types ...) #'vars.extra-type-infos]
+              [(vars ...) 
                (map
                 (lambda (stx)
                   (let-values 
@@ -251,7 +253,7 @@
                                ([(new-defs new-init) (init-var-to-context #'decl.init ctx defs)])
                              (values 
                               new-defs 
-                              #`(decl.storage-classes decl.type #,@new-init #,@#'decl.attributes)))]
+                              #`(decl.storage-classes decl.type-info #,@new-init #,@#'decl.attributes)))]
                           [(init:var-init) (init-var-to-context #'init ctx defs)])])
                     (set! defs new-defs)
                     new-stx))
@@ -259,8 +261,17 @@
                  #'vars.var
                  (syntax->list #'vars.extra-vars)))] ; heavy-lifting goes here
               [var (stx-car #'(vars ...))]
-              [(extra-vars ...) (stx-cdr #'(vars ...))]) 
-           #'(def var extra-vars ...))))])))
+              [(extra-vars ...) (stx-cdr #'(vars ...))]
+              [(extras ...) 
+               (stx-map 
+                (lambda (t-stx v-stx)
+                  (with-syntax
+                      ([(type ...) t-stx]
+                       [(init ...) v-stx])
+                    #'((type ...) init ...)))
+                #'(extra-types ...)
+                #'(extra-vars ...))]) 
+           #'(def var extras ...))))])))
 
 
 (define-syntax translation-unit
@@ -298,8 +309,9 @@
                     (stx-map 
                      (lambda (stx) 
                        (let ([expanded (local-expand stx 'top-level #f)])
+                         (display expanded) (newline)
                          (make-cpp-tu expanded)
-                         #;((walk-expr-safe-ids (make-bound-id-table)) expanded)
+                         ;((walk-expr-safe-ids (make-bound-id-table)) expanded)
                          )) 
                      contents)]
                    [unpacked #'(apply values 'contents)]) 

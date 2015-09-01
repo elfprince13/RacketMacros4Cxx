@@ -33,8 +33,30 @@
                [(number? name-or-literal)
                 (number->string name-or-literal)]
                [(string? name-or-literal)
-                [string-append "\"" name-or-literal "\""]]
-               [else (raise-argument-error 'name-or-literal "expected name, number, or string" name-or-literal)]))])))
+                (string-append "\"" name-or-literal "\"")]
+               [(char? name-or-literal)
+                (string-append 
+                 "'"
+                 (let ([hex-v 
+                        (lambda (n)
+                          (~a (number->string (char->integer name-or-literal) 16)
+                              #:width n
+                              #:align 'right
+                              #:pad-string "0"))])
+                   (cond
+                     [(and (char<=? name-or-literal #\uff) (char-alphabetic? name-or-literal) (char-numeric? name-or-literal) (char-punctuation? name-or-literal))
+                      (~a name-or-literal)]
+                     [(char<=? name-or-literal #\uff)
+                      (string-append 
+                       "\\x" (hex-v 2))]
+                     [(char<=? name-or-literal #\uffff)
+                      (string-append 
+                       "\\u" (hex-v 4))]
+                     [else 
+                      (string-append 
+                       "\\U" (hex-v 8))]))
+                 "'")]
+               [else (raise-argument-error 'name-or-literal "expected name, number, character, or string" name-or-literal)]))])))
 
 (define make-cpp-stmt 
   (lambda (stmt) 
@@ -76,13 +98,13 @@
       [(init:var-init)
        (begin 
          ;(display "var-init: ") (display #'init) (newline)
-         (let ([name (string-from-stx #'init.name)])
-           (handle-init #'init.exp 
-                        (lambda () name)
-                        (lambda (eq-expr)
-                          (string-append name " = " (make-cpp-expr eq-expr)))
-                        (lambda (paren-expr)
-                          (string-append name (make-cpp-expr paren-expr))))))])))
+         (handle-init 
+          #'init.exp 
+          (lambda () "")
+          (lambda (eq-expr)
+            (string-append " = " (make-cpp-expr eq-expr)))
+          (lambda (paren-expr)
+            (make-cpp-expr paren-expr))))])))
 
 (define make-cpp-single-decl
   (lambda (stx)
@@ -92,7 +114,7 @@
          ;(display "var-decl: ") (display #'var) (newline)
          (string-append
           (make-storage-classes #'var.storage-classes)
-          (string-from-stx #'var.type) " " (make-cpp-init #'var.init)))])))
+          (synth-type-text #'var.type-info (string-from-stx #'var.name)) (make-cpp-init #'var.init)))])))
 
 (define make-storage-classes
   (lambda (storage-syntax)
@@ -101,7 +123,56 @@
 
 (define make-attributes make-storage-classes)
 (define make-qualifiers make-storage-classes)
-(define make-type make-storage-classes)
+
+
+(define synth-type-text
+  (lambda (type-stx placeholder-text)
+    (let* ([synth-pref
+           (lambda (pref-stx)
+             ;(display "pref") (newline) (display pref-stx) (newline)
+             (string-join 
+              (stx-map 
+               (lambda (stx) 
+                 ;(display stx) (newline) 
+                 (~a (syntax->datum stx))) pref-stx)))]
+          [synth-place 
+           (lambda (place-stx)
+             ;(display "place") (newline) (display place-stx) (newline)
+             (if (stx-null? place-stx)
+                 placeholder-text
+                 (string-append
+                  "(" (string-join (map ~a (syntax->datum (stx-car place-stx))) " ")
+                  " "
+                  placeholder-text " "
+                  (string-join (map ~a (syntax->datum (stx-cdr place-stx)))) ")")))]
+          [synth-suf 
+           (lambda (suf-stx)
+             ;(display "suf") (newline) (display suf-stx) (newline)
+             (string-join 
+              (stx-map 
+               (lambda (stx) 
+                 ;(display stx) (newline) 
+                 (~a (syntax->datum stx))) suf-stx)))]
+          [synth-all
+           (lambda (pref-stx place-stx suf-stx)
+             (string-append
+              (synth-pref pref-stx) " "
+              (synth-place place-stx) " "
+              (synth-suf suf-stx)))])
+      ;(display type-stx) (newline)
+      (syntax-parse type-stx
+        [type:cxx-type 
+         (begin
+           ;(display "full") (newline)
+           (synth-all #'type.pre-terms #'type.placeholder-op #'type.post-terms))]
+        [(type:cxx-type-suffix) 
+         (begin
+           ;(display "\tsuffix") (newline)
+           (synth-all #'type.pre-terms #'type.placeholder-op #'type.post-terms))]
+        [(type:cxx-type-simple) 
+         (begin
+           ;(display "\tsimple") (newline)
+           (synth-all #'type.pre-terms #'type.placeholder-op #'type.post-terms))]))))
 
 (define make-cpp-decl 
   (lambda (stx [assume-decls-stmt #t])
@@ -110,7 +181,8 @@
       [typedef:typedef-decl
        (string-append
         "typedef "
-        (make-type #'typedef.type-terms)
+        (make-qualifiers #'typedef.qualifiers)
+        (synth-type-text #'typedef.type-info  (string-from-stx #'typedef.new-name))
         ";\n")]
       [record:record-decl
        (string-append
@@ -122,25 +194,36 @@
             ""
             (string-append
              "{\n"
-             (string-join (stx-map make-cpp-decl #'record.decls))
+             (string-join (stx-map make-cpp-single-decl #'record.decls))
              "}"))
         
         ";\n")]
       [defun:fun-decl
         (string-append 
          (make-storage-classes #'defun.storage-classes)
-         (string-from-stx #'defun.ret-type) " "
-         (string-from-stx #'defun.name) "(" (string-join (map make-cpp-single-decl (syntax->list #'defun.args)) ", ") ")" 
+         (synth-type-text 
+          #'defun.ret-type
+          (string-append
+           (string-from-stx #'defun.name) "(" (string-join (map make-cpp-single-decl (syntax->list #'defun.args)) ", ") ")")) " "
          (make-cpp-stmt #'defun.body))]
       [def:decls 
         (begin 
           ;(display "decls: ") (display #'def) (newline)
           (string-append
            (make-cpp-single-decl #'def.var) 
-           (let ((extra-decls (syntax->list #'def.extra-vars)))
+           (let ([extra-inits (syntax->list #'def.extra-vars)]
+                 [extra-types (syntax->list #'def.extra-type-infos)])
              (string-join
-              (map make-cpp-init extra-decls) ", "
-              #:before-first (if (eq? 0 (length extra-decls)) "" ", ")))
+              (map
+               (lambda (type-stx init-stx)
+                 (string-append
+                  (syntax-parse init-stx
+                    [(init-stx:var-init)
+                     (synth-type-text type-stx (string-from-stx #'init-stx.name))])
+                  (make-cpp-init init-stx) ))
+               extra-types
+               extra-inits) ", "
+              #:before-first (if (eq? 0 (length extra-inits)) "" ", ")))
            (if assume-decls-stmt
                ";\n"
                "")))])))

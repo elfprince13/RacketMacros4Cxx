@@ -57,7 +57,7 @@
        (syntax-parse decl
          [var:var-decl 
           (with-syntax ([name id])
-            #`(var.storage-classes var.type name #,@#'var.init-exp))]))
+            #`(var.storage-classes var.type-info name #,@#'var.init-exp))]))
      decls ids)))
 
 (define parse-arg-names
