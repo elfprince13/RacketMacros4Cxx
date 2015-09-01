@@ -16,11 +16,16 @@
                        (map make-cpp-expr (syntax->list #'(args ...))) ", ")
                       ")")]
       [((paren-expr ...)) 
-       (string-append "(" (make-cpp-expr #'(paren-expr ...)) ")")]
+       (begin
+         ; Need to figure out how to preserve []
+         #;(if (not (eq? (syntax-property expr 'paren-shape) #\())
+             (begin (display expr) (newline) (syntax-property expr 'paren-shape) (newline))
+             (void))
+       (string-append "(" (make-cpp-expr #'(paren-expr ...)) ")"))]
       [(operator arg1 arg2)
        (string-append (make-cpp-expr #'arg1) " " (make-cpp-expr #'operator) " " (make-cpp-expr #'arg2))]
       [(operator arg1)
-       (string-append (make-cpp-expr #'operator) (make-cpp-expr #'arg1))]
+       (string-append (make-cpp-expr #'operator) " " (make-cpp-expr #'arg1))]
       [() ""]
       [(name-or-literal) 
        (make-cpp-expr #'name-or-literal)]
@@ -60,36 +65,44 @@
 
 (define make-cpp-stmt 
   (lambda (stmt) 
-    (syntax-case stmt (if else for while block call def @) 
-      [(for ((init ...) (cond ...) (update ...)) body) 
+    (syntax-parse stmt 
+      [for:cxx-for
        (string-append
-        "for (" (make-cpp-decl #'(init ...) #f) ";" (make-cpp-expr #'(cond ...)) ";" (make-cpp-expr #'(update ...)) ")"
-        (make-cpp-stmt #'body))]
-      [(while (cond ...) body) 
+        "for (" 
+        (syntax-parse #'for.init
+          [init:decls (make-cpp-decl #'init #f)]
+          [(init:cxx-expr) (make-cpp-expr #'(init))]) 
+        ";" 
+        (make-cpp-expr #'for.cond) ";" (make-cpp-expr #'for.update) ")"
+        (make-cpp-stmt #'for.child))]
+      [while:cxx-while 
        (string-append
-        "while (" (make-cpp-expr #'(cond ...)) ") " (make-cpp-stmt #'body))]
-      [(if (cond ...) body) 
+        "while (" (make-cpp-expr #'while.cond) ") " (make-cpp-stmt #'while.child))]
+      [if-stmt:cxx-if 
        (string-append
-        "if (" (make-cpp-expr #'(cond ...)) ") " (make-cpp-stmt #'body))]
-      [(if (cond ...) body else else-body) 
-       (string-append
-        "if (" (make-cpp-expr #'(cond ...)) ") " (make-cpp-stmt #'body) " else " (make-cpp-stmt #'else-body))]
-      [(block stmts ... ) 
+        "if (" (make-cpp-expr #'if-stmt.cond) ") " (make-cpp-stmt #'if-stmt.child) 
+        (if (stx-null? #'if-stmt.else-clause)
+            ""
+            (string-append " else " (make-cpp-stmt #'if-stmt.else-clause))))]
+      [block:cxx-block 
        (begin
-         ;(print "printing block") 
-         ;(newline) 
-         ;(print #'(block stmts ...)) 
-         ;(newline)
+         #;(print "printing block") 
+         #;(newline) 
+         #;(print #'block) 
+         #;(newline)
          (string-append 
-          "{\n" (string-join (map make-cpp-stmt (syntax->list #'(stmts ...))) "") "}\n"))]
-      [(def defs ...) 
+          "{\n" (string-join (stx-map make-cpp-stmt #'block.children) "") "}\n"))]
+      [decl:cxx-decls
        (make-cpp-decl stmt)]
-      [(expr ...) 
+      [skel:cxx-@
+       (raise-argument-error 'make-cpp-stmt "Received statement contained unexpanded skeleton: " stmt)]
+      [empty:cxx-empty ";\n"]
+      [expr:cxx-expr 
        (begin 
-         ;(print "no match found for ") 
-         ;(newline) 
-         ;(print stmt) 
-         ;(newline)
+         #;(print "no match found for ") 
+         #;(newline) 
+         #;(print stmt) 
+         #;(newline)
          (string-append (make-cpp-expr stmt) ";\n"))])))
 
 (define make-cpp-init 
@@ -117,11 +130,20 @@
           (synth-type-text #'var.type-info (string-from-stx #'var.name)) (make-cpp-init #'var.init)))])))
 
 (define make-storage-classes
-  (lambda (storage-syntax)
+  (lambda (storage-syntax [string-f string-from-stx])
     (string-join 
-     (stx-map string-from-stx storage-syntax) " " #:after-last (if (stx-null? storage-syntax ) "" " "))))
+     (stx-map string-f storage-syntax) " " #:after-last (if (stx-null? storage-syntax ) "" " "))))
 
-(define make-attributes make-storage-classes)
+(define make-attributes 
+  (lambda (attrs)
+    (string-join 
+     (stx-map 
+      (lambda (attr)
+        (string-join 
+         (stx-map
+          (lambda (stx)
+            (~a (syntax->datum stx))) attr)
+         "")) attrs) " ")))
 (define make-qualifiers make-storage-classes)
 
 
@@ -204,7 +226,10 @@
          (synth-type-text 
           #'defun.ret-type
           (string-append
-           (string-from-stx #'defun.name) "(" (string-join (map make-cpp-single-decl (syntax->list #'defun.args)) ", ") ")")) " "
+           (string-from-stx #'defun.name) "(" (string-join (map make-cpp-single-decl (syntax->list #'defun.args)) ", ") ")")) 
+         " "
+         (make-attributes #'defun.attributes)
+         " "                                                                                                                     
          (make-cpp-stmt #'defun.body))]
       [def:decls 
         (begin 

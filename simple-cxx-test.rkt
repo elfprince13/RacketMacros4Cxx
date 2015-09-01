@@ -5,6 +5,11 @@
 
 (translation-unit
  
+ #;(def (() union {
+    (() (char (!) [128]) __mbstate8)
+    (() (long long (!)) _mbstateL)
+    }) (typedef () ((!)) __mbstate_t))
+ 
  (typedef () (const int * (* (!))([5])) foobar)
  
  (() struct fun 
@@ -30,18 +35,15 @@
 
 (defun () (int (!)) main () (block
     (def (() (int (!)) argc = 100))
-    (def (() (char (!) [argc]) data))
+    (def (() (char * (!)) data = (call malloc argc)))
     (if (== ((% argc 4)) 0) (block
-        (@ Loop2dAccumulate (test_loop) (
+        (@ Loop1d (test_loop) (
             [@ I]
-            [@ J]
             [= 0]
             [= argc]
-            [= 0]
-            [= 100]
-          )
+            )
             (block
-                (def (() int i))
+                (def (() (int (!)) i))
                 (@ I () (
                     [= i]
                   )
@@ -51,9 +53,4 @@
             )
         )
         (return 0)    ) else (block
-        (return (% argc 4))    ))
-)
-
-)
-
-)
+        (return (% argc 4))    )))))

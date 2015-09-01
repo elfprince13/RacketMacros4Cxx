@@ -11,7 +11,7 @@
 
 (require (for-syntax "util.rkt"
                      "syntax-classes.rkt"))
-(require "../LoopTiles.rkt")
+(require (for-syntax "../LoopTiles.rkt"))
 (require (for-syntax "Writer.rkt"))
 
 (require "req-utils.rkt")
@@ -38,46 +38,14 @@
 
 ; Grid > Block > Warp > Thread-Loop > Unroll
 ; 
-(define init-skeletons-table 
-  (list (hash 'Loop1d 
-              (lambda (skel table-here) 
-                (syntax-case skel (@ Loop1d)
-                  [(@ Loop1d (name ...) (params ...) body)
-                   (let* ((params (syntax->datum #'(params ...)))
-                          (num-params (length params)))
-                     (cond
-                       ((> 2 num-params) (raise-argument-error 'params "at least 2 arguments required" params))
-                       ((< 4 num-params) (raise-argument-error 'params "at least 4 arguments required" params))
-                       (else 
-                        (let ((itr-var (car (car params)))
-                              (lower-bound (if (eq? 2 num-params) 0 (car (cadr params))))
-                              (upper-bound (car (if (eq? 2 num-params) (cadr params) (caddr params))))
-                              (stride (if (eq? 4 num-params) (car (cadddr params)) 1)))
-                          (lambda (ext-params)
-                            (let ((num-ext-params (length ext-params)))
-                              (if (eq? 10 num-ext-params)
-                                  (let*-values (((split-vars split-bounds) (split-at (drop ext-params (- num-ext-params 10)) 5))
-                                                ((index-vars) (map car split-vars))
-                                                ((index-bounds) (map car split-bounds)))
-                                    (let-values (((counter-exp geom-exp loop-code) (cuda-loop1d #'body index-vars index-bounds (list 0 1 2 3 4))))
-                                      (skeleton-expansion
-                                       loop-code
-                                       (cons (hash 'I (lambda (skel table-here) 
-                                                        (syntax-case skel (@ I)
-                                                          [(@ I () () ()) 
-                                                           (lambda (ext-params) 
-                                                             (skeleton-expansion
-                                                              (with-syntax ((itr-var itr-var)) #'itr-var)
-                                                              table-here))]))
-                                                   'N (lambda (skel table-here) 
-                                                        (syntax-case skel (@ I)
-                                                          [(@ N () () ()) 
-                                                           (lambda (ext-params) 
-                                                             (skeleton-expansion 
-                                                              (with-syntax ((upper-bound upper-bound)) #'upper-bound)
-                                                              table-here))]))) 
-                                             table-here))))
-                                  (raise-argument-error 'ext-params "10 arguments required" ext-params))))))))])))))
+(define-for-syntax InitSkelTable 
+  (hash 'Loop1d 
+        #'(lambda (skel) 
+          (syntax-parse skel
+            [(_ (name:id) args:skeleton-args child:cxx-stmt)
+             #'"A wild skeleton appeared"]))))
+(define-for-syntax InitSkelIds
+  (make-hash))
 
 
 #;(define expand-stmt 
@@ -94,19 +62,38 @@
                (expand-stmt (skeleton-expansion-body expansion) (skeleton-expansion-table expansion)))))] ; The expansion process may have introduced new macros, so expand those too
         )))
 
+
+
+(define-syntax @
+  (lambda (stx)
+    (syntax-parse stx 
+      [skel:cxx-@
+       (with-syntax
+           ([skel-macro (syntax-local-introduce (hash-ref InitSkelIds 'Loop1d)) #;(syntax-local-value (syntax-local-introduce (format-id #'skel.kind "@~a" (syntax-e #'skel.kind) #:source #'skel.kind #:props #'skel.kind)))])
+         (local-expand #'(skel-macro (skel.name) skel.args skel.child) 'expression #f))]
+      )))
+
 (define-syntax while
   (lambda (stx)
-    (syntax-case stx ()
-      [(keyword (cond ...) body) 
+    (syntax-parse stx
+      [stmt:cxx-while 
        (with-syntax 
-           ([(cond ...) (local-expand #'(cond ...) 'expression #f)]
-            [body (local-expand #'body 'expression #f)])
-         (no-expand #'(keyword (cond ...) body)))])))
+           ([cond (local-expand #'stmt.cond 'expression #f)]
+            [child (local-expand #'stmt.child 'expression #f)])
+         (no-expand #'(while cond child)))])))
 
-#;(define-syntax @
+(define-syntax -if
   (lambda (stx)
-    (syntax-case stmt ()
-      )))
+    (syntax-parse stx
+      [stmt:cxx-if 
+       (with-syntax 
+           ([cond (local-expand #'stmt.cond 'expression #f)]
+            [child (local-expand #'stmt.child 'expression #f)]
+            [else-clause 
+             (if (stx-null? #'stmt.else-clause)
+                 #'stmt.else-clause
+                 (local-expand #'stmt.else-clause 'expression #f))])
+         (no-expand (if (stx-null? #'else-clause) #'(if cond child) #'(if cond child else else-clause))))])))
 
 (define-syntax block
   (lambda (stx)
@@ -136,33 +123,6 @@
          (no-expand #'(keyword stmts ...)))])))
 
 #;(((
-     [(for ((init ...) (cond ...) (update ...)) body) 
-      (with-syntax
-          ((init (expand-stmt #'(init ...) skels))
-           (cond (expand-stmt #'(cond ...) skels))
-           (update (expand-stmt #'(update ...) skels))
-           (body (expand-stmt #'body skels)))
-        #'(for (init cond update) body))]
-     [(if (cond ...) body) 
-      (with-syntax  
-          ((cond (expand-stmt #'(cond ...) skels))
-           (body (expand-stmt #'body skels))) 
-        #'(if cond body))]
-     [(if (cond ...) body else else-body) 
-      (with-syntax 
-          ((cond (expand-stmt #'(cond ...) skels))
-           (body (expand-stmt #'body skels))
-           (else-body (expand-stmt #'else-body skels))) 
-        #'(if cond body else else-body))]
-     [(call func args ... ) 
-      (begin 
-        #;(print "expanding call") 
-        #;(newline ) 
-        (let ((args (map (curryr expand-stmt skels) (syntax->list #'(args ...)))))
-          (with-syntax ((func (expand-stmt #'func skels)))
-            #`(call func #,@(datum->syntax stmt args)))))]
-     [(def defs ...) 
-      (expand-decl stmt skels)]
      [(expr ...) 
       (begin
         #;(print "no match for ") 
@@ -210,6 +170,7 @@
 
 (define-for-syntax defun
   (lambda (stx ctx defs)
+    ;(display stx) (newline)
     (syntax-parse stx
       [func:fun-decl 
        (let ([defs (syntax-local-make-definition-context defs)]
@@ -230,8 +191,10 @@
                [(kw-arg ...) 
                 (subs-decl-ids
                  (syntax->list #'func.kw-args)
-                 (contextualize-args kw-args defs))])
-            #'(defun func.storage-classes func.ret-type f-name (arg ... kw-arg ...) body))))])))
+                 (contextualize-args kw-args defs))]
+               [((attribute-term ...) ...) ; This is a splicing class so jam all the terms together
+                #'func.attributes])
+            #'(defun func.storage-classes func.ret-type f-name (arg ... kw-arg ...) attribute-term ... ... body))))])))
 
 (define-for-syntax def
   (lambda (stx ctx defs)
@@ -273,13 +236,19 @@
                 #'(extra-vars ...))]) 
            #'(def var extras ...))))])))
 
-
 (define-syntax translation-unit
   (lambda (stx)
     (syntax-parse stx
       [unit:tu-stx
        (let ([top-level-defs (syntax-local-make-definition-context)]
              [ctx (generate-expand-context)])
+         
+         (hash-set! InitSkelIds 'Loop1d #'@Loop1d)
+         (syntax-local-bind-syntaxes 
+          (list (hash-ref InitSkelIds 'Loop1d)) 
+          (local-transformer-expand (hash-ref InitSkelTable 'Loop1d) 'expression null) top-level-defs)
+         (internal-definition-context-seal top-level-defs)
+         (hash-set! InitSkelIds 'Loop1d (internal-definition-context-apply/loc top-level-defs (hash-ref InitSkelIds 'Loop1d)))
          (with-syntax 
              ([(declaration ...)
                (stx-map 
@@ -309,7 +278,7 @@
                     (stx-map 
                      (lambda (stx) 
                        (let ([expanded (local-expand stx 'top-level #f)])
-                         (display expanded) (newline)
+                         ;(display expanded) (newline)
                          (make-cpp-tu expanded)
                          ;((walk-expr-safe-ids (make-bound-id-table)) expanded)
                          )) 

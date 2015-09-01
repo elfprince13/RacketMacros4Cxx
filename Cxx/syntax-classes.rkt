@@ -9,6 +9,13 @@
 ; Types
 ;;;;;;;;;;;;;;;;;;;;;;
 
+(define-syntax-class record-kind-kw
+  (pattern (~datum class))
+  (pattern (~datum struct))
+  (pattern (~datum __interface)) ;; hopefully shouldn't see this ever
+  (pattern (~datum union))
+  (pattern (~datum enum)))
+
 (define-splicing-syntax-class cxx-type-placeholder
   (pattern (~seq (~datum !) (~bind [placeholder-op #'()])))
   (pattern (~seq placeholders-pref ... ((~datum !)) placeholders-suf ... (~bind [placeholder-op #'((placeholders-pref ...) . (placeholders-suf ...))]))))
@@ -17,19 +24,67 @@
   (pattern (~seq type-terms ... (~peek (place:cxx-type-placeholder)) (~bind [pre-terms #'(type-terms ...)] [post-terms #'()] [placeholder-op #'()]))))
 
 (define-splicing-syntax-class cxx-type-suffix
-  (pattern (~seq ((~var placeholder cxx-type-placeholder)) (type-terms-2  ...) (~bind [pre-terms #'()] [post-terms #'(type-terms-2 ...)] [placeholder-op #'placeholder.placeholder-op])))
-  (pattern (~seq ((~var placeholder cxx-type-placeholder)) (~bind [pre-terms #'()] [post-terms #'()] [placeholder-op #'placeholder.placeholder-op]))))
+  (pattern (~seq ((~var placeholder cxx-type-placeholder)) type-terms-2  ... (~bind [pre-terms #'()] [post-terms #'(type-terms-2 ...)] [placeholder-op #'placeholder.placeholder-op]))))
 
 (define-syntax-class cxx-type  
   (pattern (simple-type:cxx-type-simple suffix-type:cxx-type-suffix (~bind [pre-terms #'simple-type.pre-terms] [post-terms #'suffix-type.post-terms] [placeholder-op #'suffix-type.placeholder-op]))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;
+; Expressions
+;;;;;;;;;;;;;;;;;;;;;;
+(define-syntax-class cxx-expr
+  (pattern (term ...+ (~bind [terms #'(term ...)])))
+  (pattern atom))
+
+
+;;;;;;;;;;;;;;;;;;;;;;
+; Skeleton arguments
+;;;;;;;;;;;;;;;;;;;;;;
+(define-syntax-class skel-id-arg
+  (pattern (@ arg-id:id)))
+(define-syntax-class skel-expr-arg
+  (pattern (= arg-expr:cxx-expr)))
+(define-syntax-class skel-stmt-arg
+  (pattern (@ arg-stmt:cxx-stmt)))
+
+(define-syntax-class skeleton-arg
+  (pattern arg:skel-id-arg)
+  (pattern arg:skel-expr-arg)
+  (pattern arg:skel-stmt-arg))
+
+(define-syntax-class skeleton-args
+  (pattern (arg:skeleton-arg ...)))
+
+;;;;;;;;;;;;;;;;;;;;;;
 ; Statements
 ;;;;;;;;;;;;;;;;;;;;;;
 
+(define-syntax-class cxx-empty
+  (pattern ()))
+(define-syntax-class cxx-decls
+  (pattern decl:decls))
+(define-syntax-class cxx-block
+  (pattern ((~datum block) child:cxx-stmt ... (~bind [children #'(child ...)]))))
+(define-syntax-class cxx-for
+  (pattern ((~datum for) ((~or init:decls init:expr) cond:cxx-expr update:cxx-expr) child:cxx-stmt)))
+(define-syntax-class cxx-while
+  (pattern ((~datum while) cond:cxx-expr child:cxx-stmt)))
+(define-syntax-class cxx-if
+  (pattern ((~datum if) cond:cxx-expr child:cxx-stmt (~bind [else-clause #'()])))
+  (pattern ((~datum if) cond:cxx-expr child:cxx-stmt (~datum else) else-clause:cxx-stmt)))
+(define-syntax-class cxx-@
+  (pattern ((~datum @) kind:id (name:id) args:skeleton-args child:cxx-stmt)))
 
-
+(define-syntax-class cxx-stmt
+  (pattern item:cxx-empty)
+  (pattern item:cxx-decls)
+  (pattern item:cxx-block)
+  (pattern item:cxx-for)
+  (pattern item:cxx-while)
+  (pattern item:cxx-if)
+  (pattern item:cxx-@)
+  (pattern item:cxx-expr))
 
 ;;;;;;;;;;;;;;;;;;;;;;
 ; Declaration stuff
@@ -50,15 +105,18 @@
   (pattern ((storage ...) type-info:cxx-type (~var init var-init) attr:c-attribute ... (~bind [storage-classes #'(storage ...)] [name #'init.name] [init-exp #'init.exp] [attributes #'(attr ...)]))))
 
 (define-syntax-class record-decl
-  (pattern ((qualifier ...) kind:id name:id attr:c-attribute ... (decl:var-decl ...) (~bind [qualifiers #'(qualifier ...)] [attributes #'(attr ...)] [decls #'(decl ...)])))
-  (pattern ((qualifier ...) kind:id name:id attr:c-attribute ... (~bind [qualifiers #'(qualifier ...)] [attributes #'(attr ...)] [decls #'()])))) ; forward declaration
+  (pattern ((qualifier ...) kind:record-kind-kw name:id attr:c-attribute ... (decl:var-decl ...) (~bind [qualifiers #'(qualifier ...)] [attributes #'(attr ...)] [decls #'(decl ...)])))
+  (pattern ((qualifier ...) kind:record-kind-kw name:id attr:c-attribute ... (~bind [qualifiers #'(qualifier ...)] [attributes #'(attr ...)] [decls #'()])))) ; forward declaration
 
 (define-syntax-class decls
   (pattern ((~datum def) (~var var var-decl) (extra-type:cxx-type extra-var:var-init) ... (~bind [extra-vars #'(extra-var ...)] [extra-type-infos #'(extra-type ...)]))))
 
+(define-syntax-class inline-record-typedef
+  (pattern ((~datum def) record:record-decl typedef:typedef-decl)))
+
 ; we should set a fail-when on arg
 (define-syntax-class fun-decl
-  (pattern ((~datum defun) (storage ...) (~var ret-type cxx-type) (~var name id) (arg:var-decl ... kw-arg:var-decl ...) attr:c-attribute ...  (~var body expr) 
+  (pattern ((~datum defun) (storage ...) (~var ret-type cxx-type) (~var name id) (arg:var-decl ... kw-arg:var-decl ...) attr:c-attribute ...  (~var body cxx-stmt) 
              (~bind [storage-classes #'(storage ...)] [args #'(arg ...)] [kw-args #'(kw-arg ...)] [attributes #'(attr ...)])))
   (pattern ((~datum defun) (storage ...) (~var ret-type cxx-type) (~var name id) (arg:var-decl ... kw-arg:var-decl ...) attr:c-attribute ... 
              (~bind [storage-classes #'(storage ...)] [args #'(arg ...)] [kw-args #'(kw-arg ...)] [attributes #'(attr ...)] [body #'()])))) ; forward declaration
@@ -69,6 +127,7 @@
 (define-syntax-class tu-item
   (pattern item:typedef-decl)
   (pattern item:record-decl)
+  (pattern item:inline-record-typedef)
   (pattern item:decls)
   (pattern item:fun-decl))
 
