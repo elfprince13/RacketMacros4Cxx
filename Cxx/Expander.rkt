@@ -25,7 +25,6 @@
    '(I ()) '()
    '(N ()) '()))
 
-
 (define lookup-skeleton
   (lambda (table-list key)
     (begin
@@ -42,6 +41,8 @@
      skel-kind 
      "@~a" 
      (syntax-e skel-kind) #:source skel-kind #:props skel-kind)))
+(define-for-syntax InitSkelIds
+  (make-hash))
 
 ; Grid > Block > Warp > Thread-Loop > Unroll
 ; 
@@ -74,8 +75,6 @@
                      ([itr-id itr-id]
                       [child (local-expand #'child ctx #f defs)])
                    #'(for ((def (() (int (!)) itr-id = 0)) (< itr-id 5) (++ itr-id)) child)))]))))
-(define-for-syntax InitSkelIds
-  (make-hash))
 
 
 (define-syntax @
@@ -83,9 +82,11 @@
     (syntax-parse stx 
       [skel:cxx-@
        (with-syntax
-           ([skel-macro (hash-ref InitSkelIds (syntax->datum #'skel.kind)
-                                  (lambda () (macroize-skel-kind #'skel.kind))) 
-                        #;(syntax-local-value (syntax-local-introduce (macroize-skel-kind #'skel.kind)))])
+           ([skel-macro 
+             (hash-ref
+              InitSkelIds
+              (syntax->datum #'skel.kind) ; If it's a top-level thingy, we shouldn't have any problem looking it up. 
+              (lambda () (macroize-skel-kind #'skel.kind)))]) ; If not, we shouldn't have any problem with the marks
          (local-expand #'(skel-macro (skel.name) skel.args skel.child) 'expression #f))]
       )))
 
@@ -266,14 +267,21 @@
     (syntax-parse stx
       [unit:tu-stx
        (let ([top-level-defs (syntax-local-make-definition-context)]
-             [ctx (generate-expand-context)])
-         
-         (hash-set! InitSkelIds 'Loop1d #'@Loop1d)
+             [ctx (generate-expand-context)]
+             [skel-ids (list #'Loop1d)])
          (syntax-local-bind-syntaxes 
-          (list (hash-ref InitSkelIds 'Loop1d)) 
-          (local-transformer-expand (hash-ref InitSkelTable 'Loop1d) 'expression null) top-level-defs)
+          (map macroize-skel-kind skel-ids)
+          (with-syntax
+              ([(skel-defs ...) 
+                (map
+                 (lambda (skel-id)
+                   (local-transformer-expand (hash-ref InitSkelTable (syntax->datum skel-id)) 'expression null)) skel-ids)])
+            #'(values skel-defs ...))
+          top-level-defs)
          (internal-definition-context-seal top-level-defs)
-         (hash-set! InitSkelIds 'Loop1d (internal-definition-context-apply/loc top-level-defs (hash-ref InitSkelIds 'Loop1d)))
+         (map 
+          (lambda (skel-id)
+            (hash-set! InitSkelIds (syntax->datum skel-id) (internal-definition-context-apply/loc top-level-defs (macroize-skel-kind skel-id)))) skel-ids)
          (with-syntax 
              ([(declaration ...)
                (stx-map 
@@ -302,13 +310,13 @@
                    [contents 
                     (stx-map 
                      (lambda (stx) 
-                       (let ([expanded (local-expand stx 'top-level #f)])
+                       (let* ([expanded (local-expand stx 'top-level #f)]
+                              [expanded ((walk-expr-safe-ids (make-bound-id-table)) expanded)])
                          ;(display expanded) (newline)
-                         (make-cpp-tu expanded)
-                         ;((walk-expr-safe-ids (make-bound-id-table)) expanded)
-                         )) 
+                         
+                         (make-cpp-tu expanded))) 
                      contents)]
-                   [unpacked #'(apply values 'contents)]) 
+                   [unpacked #'(let () (map display 'contents) (void))]) 
       (if tag 
           #'(stx-tag unpacked) 
           #'unpacked))))

@@ -255,8 +255,8 @@
 
 (define make-cpp-tu
   (lambda (stx)
-    (display "// emitting C++-proper via Racket's #Cxx\n")
-    ;(display stx) (newline)
-    (syntax-parse stx
+    (string-append 
+     "// emitting C++-proper via Racket's #Cxx\n"
+     (syntax-parse stx
       [unit:tu-stx
-       (display (string-join (stx-map make-cpp-decl #'unit.items)))])))
+       (string-join (stx-map make-cpp-decl #'unit.items))]))))
