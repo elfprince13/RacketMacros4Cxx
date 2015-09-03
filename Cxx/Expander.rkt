@@ -9,10 +9,10 @@
                      syntax/parse
                      syntax/stx))
 
-(require (for-syntax "util.rkt"
-                     "syntax-classes.rkt"))
-(require (for-syntax "../LoopTiles.rkt"))
-(require (for-syntax "Writer.rkt"))
+(require (for-syntax "../LoopTiles.rkt"
+                     "syntax-classes.rkt"
+                     "util.rkt"
+                     "Writer.rkt"))
 
 (require "req-utils.rkt")
 (provide (all-defined-out))
