@@ -9,14 +9,18 @@
 
 (define make-cpp-expr 
   (lambda (expr) 
-    (syntax-case expr (call) 
-      [(call callee args ...) 
+    (syntax-parse expr 
+      [((~datum call) callee args ...) 
        (string-append (make-cpp-expr #'callee) "("
                       (string-join 
                        (map make-cpp-expr (syntax->list #'(args ...))) ", ")
                       ")")]
+      [((~datum c-cast) cast-type:cxx-type cast-expr) 
+       (string-append 
+        (synth-type-text #'cast-type "") (make-cpp-expr #'cast-expr))]
       [((paren-expr ...)) 
        (begin
+         ;(display "this is a paren-expr: ") (display expr) (newline)
          ; Need to figure out how to preserve []
          #;(if (not (eq? (syntax-property expr 'paren-shape) #\())
              (begin (display expr) (newline) (syntax-property expr 'paren-shape) (newline))
@@ -115,7 +119,8 @@
           #'init.exp 
           (lambda () "")
           (lambda (eq-expr)
-            (string-append " = " (make-cpp-expr eq-expr)))
+            ;(display eq-expr) (newline)
+            (string-append " = " (make-cpp-expr (stx-car eq-expr))))
           (lambda (paren-expr)
             (make-cpp-expr paren-expr))))])))
 

@@ -32,17 +32,25 @@
       (call printf "done\\n")))))
 
 (translation-unit
-
-(defun () (int (!)) main () (block
+ 
+ (defun (extern ) (void * (!)) malloc ((() (long long (!)) size)))
+ (defun (extern ) (void (!)) free ((() (void * (!)) data)))
+ (defun () (int (!)) main () 
+   (block
     (def (() (int (!)) argc = 100))
-    (def (() (char * (!)) data = (call malloc argc)))
-    (if (== ((% argc 4)) 0) (block
-        (@ Loop1d (test_loop) ([@ I][= 0][= argc])
+    (def (() (char * (!)) data = (c-cast ((char * (!)) ) (call malloc argc))))
+    (def (() (int (!)) ret))
+    (if (== ((% argc 4)) 0) 
+        (block
+         (@ Loop1d (test_loop) ([@ I][= 0][= argc])
             (block
-                (def (() (int (!)) i))
-                (@ I (test_itr) ([= i])())
-                ((* ((+ data i))) ++)
-            )
-        )
-        (return 0)    ) else (block
-        (return (% argc 4))    )))))
+             (def (() (int (!)) i))
+             (@ I (test_iterator) ([= i])
+                ())
+             (((* ((+ data i)))) ++)))
+         (= ret 0)) 
+        else 
+        (block
+         (= ret (% argc 4))))
+    (call free data)
+    (return ret))))
