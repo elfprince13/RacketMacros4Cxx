@@ -31,7 +31,7 @@
     (for ((def (() (int (!)) i = 0)) (< i argc) (i ++))
       (call printf "done\\n")))))
 
-(translation-unit
+#;(translation-unit
 
 (defun (extern ) (void * (!)) malloc ((() (unsigned long (!)) size)))
 (defun (extern ) (void (!)) free ((() (void * (!)) data)))
@@ -68,4 +68,53 @@
 
 )
 
+)
+
+(translation-unit
+
+(defun (extern ) (void * (!)) malloc ((() (unsigned long (!)) size)))
+(defun (extern ) (void (!)) free ((() (void * (!)) data)))
+(defun (extern ) (int (!)) puts ((() (const char * (!)) str)))
+(defun (extern ) (unsigned long (!)) strlen ((() (const char * (!)) str)))
+(defun () (int (!)) main ((() (int (!)) argc) (() (char * * (!)) argv)) (block
+    (def (() (int (!)) ret))
+    (if (== ((% argc 4)) 0) (block
+        (for ((def (() (int (!)) j = 0)) (< j argc) (j ++))
+            (block
+                (def (() (int (!)) i))
+                (= i j)
+                (if (> (call strlen (* ((+ argv i)))) 0)
+                    (((* ((+ argv i)))) ++)
+)
+                (call puts (* ((+ argv i))))
+                
+                #;(block
+        (for ((def (() (int (!)) j = 0)) (< j argc) (j ++))
+            (block
+                (def (() (int (!)) i))
+                (= i j)
+                (if (> (call strlen (* ((+ argv i)))) 0)
+                    (((* ((+ argv i)))) ++)
+)
+                (call puts (* ((+ argv i))))
+                
+                
+            )
+        )
+        (def (() (const char (!)) nl = #\u0a))
+        (call puts (& nl))
+        (= ret 0)
+    )
+                
+            )
+        )
+        (def (() (const char (!)) nl = #\u0a))
+        (call puts (& nl))
+        (= ret 0)
+    ) else (block
+        (= ret (% argc 4))
+    ))
+    (return ret))
+
+)
 )

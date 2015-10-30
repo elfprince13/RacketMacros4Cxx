@@ -127,7 +127,7 @@
          (no-expand (if (stx-null? #'else-clause) #'(if cond child) #'(if cond child else else-clause))))])))
 
 (define-syntax block
-  (lambda (stx)
+  (lambda (stx) ; Apparently a ton of total time is here (as expected), but all in child-calls
     (syntax-case stx ()
       [(keyword stmts ... )
        (with-syntax 
@@ -291,7 +291,7 @@
          (with-syntax 
              ([(declaration ...)
                (stx-map 
-                (lambda (declaration) 
+                (lambda (declaration) ; Apparently this is eating a lot of time
                   (define out-form 
                     (syntax-parse declaration
                       [record:record-decl #'record]
@@ -315,7 +315,7 @@
     (with-syntax* ([stx-tag tag] 
                    [contents 
                     (stx-map 
-                     (lambda (stx) 
+                     (lambda (stx) ; apparently this is also burning a lot of time in its own routines
                        (let* ([expanded (local-expand stx 'top-level #f)]
                               [expanded ((walk-expr-safe-ids (make-bound-id-table)) expanded)])
                          ;(display expanded) (newline)
