@@ -32,25 +32,40 @@
       (call printf "done\\n")))))
 
 (translation-unit
- 
- (defun (extern ) (void * (!)) malloc ((() (long long (!)) size)))
- (defun (extern ) (void (!)) free ((() (void * (!)) data)))
- (defun () (int (!)) main () 
-   (block
-    (def (() (int (!)) argc = 100))
-    (def (() (char * (!)) data = (c-cast ((char * (!)) ) (call malloc argc))))
+
+(defun (extern ) (void * (!)) malloc ((() (unsigned long (!)) size)))
+(defun (extern ) (void (!)) free ((() (void * (!)) data)))
+(defun (extern ) (int (!)) puts ((() (const char * (!)) str)))
+(defun (extern ) (unsigned long (!)) strlen ((() (const char * (!)) str)))
+(defun () (int (!)) main ((() (int (!)) argc) (() (char * * (!)) argv)) (block
     (def (() (int (!)) ret))
-    (if (== ((% argc 4)) 0) 
-        (block
-         (@ Loop1d (test_loop) ([@ I][= 0][= argc])
+    (if (== ((% argc 4)) 0) (block
+        (@ Loop1d (test_loop) (
+            [@ I]
+            [= 0]
+            [= argc]
+          )
             (block
-             (def (() (int (!)) i))
-             (@ I (test_iterator) ([= i])
-                ())
-             (((* ((+ data i)))) ++)))
-         (= ret 0)) 
-        else 
-        (block
-         (= ret (% argc 4))))
-    (call free data)
-    (return ret))))
+                (def (() (int (!)) i))
+                (@ I (test_iterator) (
+                    [= i]
+                  )
+                    ()
+                )
+                (if (> (call strlen (* ((+ argv i)))) 0)
+                    (((* ((+ argv i)))) ++)
+)
+                (call puts (* ((+ argv i))))
+            )
+        )
+        (def (() (const char (!)) nl = #\u0a))
+        (call puts (& nl))
+        (= ret 0)
+    ) else (block
+        (= ret (% argc 4))
+    ))
+    (return ret))
+
+)
+
+)

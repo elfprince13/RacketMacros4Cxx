@@ -19,7 +19,7 @@
 
 (define simple-external-params-table
   (hash 
-   '(Loop1d (test-loop)) (list 
+   '(Loop1d (test_loop)) (list 
                           (list #'(blockIdx . x)) (list #'((/ (threadIdx . x) 32))) (list #'((& (threadIdx . x) 31))) (list #'k) (list #'j) 
                           (list #'(gridDim . x)) (list #'((/ (blockDim . x) 32))) (list #'32) (list #'1) (list #'4)) 
    '(I ()) '()
@@ -55,6 +55,8 @@
                    ([defs (syntax-local-make-definition-context)]
                     [ctx (generate-expand-context)]
                     [itr-id #'j]
+                    [itr-init (stx-cdr (stx-car (stx-cdr #'args)))]
+                    [itr-final (stx-cdr (stx-car (stx-cdr (stx-cdr #'args))))]
                     [itr-skel-kind (stx-car (stx-cdr (stx-car #'args)))]
                     [itr-macro (macroize-skel-kind itr-skel-kind)])
                  (syntax-local-bind-syntaxes
@@ -73,8 +75,11 @@
                  (internal-definition-context-seal defs)
                  (with-syntax 
                      ([itr-id itr-id]
+                      [itr-init itr-init]
+                      [itr-final itr-final]
                       [child (local-expand #'child ctx #f defs)])
-                   #'(for ((def (() (int (!)) itr-id = 0)) (< itr-id 5) (++ itr-id)) child)))]))))
+                   #;(cuda-loop1d #'child)
+                   #'(for ((def (() (int (!)) itr-id = itr-init)) (< itr-id itr-final) (++ itr-id)) child)))]))))
 
 
 (define-syntax @
@@ -134,6 +139,7 @@
                (if (null? work)
                    null
                    (let-values ([(head rest) (values (car work) (cdr work))])
+                     ;(display head) (display " ") (display rest) (newline)
                      (let-values 
                          ([(head defs)
                            (syntax-parse head
