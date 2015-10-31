@@ -1,18 +1,22 @@
 #lang racket
 
-(require (for-syntax macro-debugger/emit
-                     racket/format
-                     racket/dict
-                     racket/syntax
-                     syntax/context
-                     syntax/id-table
-                     syntax/parse
-                     syntax/stx))
+(require 
+  (for-syntax 
+   macro-debugger/emit
+   racket/format
+   racket/dict
+   racket/syntax
+   syntax/context
+   syntax/id-table
+   syntax/parse
+   syntax/stx))
 
-(require (for-syntax "../LoopTiles.rkt"
-                     "syntax-classes.rkt"
-                     "util.rkt"
-                     "Writer.rkt"))
+(require 
+  (for-syntax 
+   "../LoopTiles.rkt"
+   "syntax-classes.rkt"
+   "util.rkt"
+   "Writer.rkt"))
 
 (require "req-utils.rkt")
 (provide (all-defined-out))
@@ -39,15 +43,15 @@
   (init-clock tick)
   (let
       ([time 0])
-      (values
-       (lambda ()
-         (set! time (current-inexact-milliseconds))
-         " 0")
-       (lambda ()
-         (let ([pv-time time]
-               [now (current-inexact-milliseconds)])
-           (set! time now)
-           (string-append " " (~r (- now pv-time) #:precision 2)))))))
+    (values
+     (lambda ()
+       (set! time (current-inexact-milliseconds))
+       " 0")
+     (lambda ()
+       (let ([pv-time time]
+             [now (current-inexact-milliseconds)])
+         (set! time now)
+         (string-append " " (~r (- now pv-time) #:precision 2)))))))
 
 (define-for-syntax macroize-skel-kind
   (lambda (skel-kind)
@@ -77,13 +81,13 @@
                   (list itr-macro)
                   (local-transformer-expand 
                    (with-syntax ([itr-id itr-id])
-                   #'(lambda (stx)
-                       (syntax-parse stx
-                         [(_ (name:id) inner-args:skeleton-args child:cxx-stmt)
-                          (with-syntax 
-                              ([itr-id #'itr-id]
-                               [local-id (stx-car (stx-cdr (stx-car #'inner-args)))])
-                            #'(= local-id itr-id))])))
+                     #'(lambda (stx)
+                         (syntax-parse stx
+                           [(_ (name:id) inner-args:skeleton-args child:cxx-stmt)
+                            (with-syntax 
+                                ([itr-id #'itr-id]
+                                 [local-id (stx-car (stx-cdr (stx-car #'inner-args)))])
+                              #'(= local-id itr-id))])))
                    'expression null) 
                   defs)
                  (internal-definition-context-seal defs)
@@ -120,12 +124,26 @@
 
 (define-syntax for
   (lambda (stx)
-    (syntax-parse stx
-      [stmt:cxx-for
-       (no-expand 
-        (syntax-parse #'stmt.init
-          [init:decls stx]
-          [init:cxx-expr stx]))])))
+    (let 
+        ([defs #f]
+         [context (generate-expand-context)])
+      (syntax-parse stx
+        [stmt:cxx-for
+         (with-syntax* 
+             ([init 
+               (syntax-parse #'stmt.init
+                 [init:decls 
+                  (let-values 
+                      ([(for-defs init) 
+                        (def #'init context defs)]) ;this should handle sealing the additions too
+                    (set! defs for-defs)
+                    init)]
+                 [init:cxx-expr #'init])]
+              [cond (local-expand #'stmt.cond context #f defs)]
+              [update (local-expand #'stmt.update context #f defs)]
+              [child (local-expand #'stmt.child context #f defs)])
+           (no-expand 
+            #'(for (init cond update) child)))]))))
 
 (define-syntax -if
   (lambda (stx)
@@ -142,36 +160,36 @@
 
 (define-syntax block
   (let ([nest 0])
-  (lambda (stx) ; Apparently a ton of total time is here (as expected), but all in child-calls
-    (set! nest (+ nest 1))
-    (syntax-parse stx
-      [stmt:cxx-block
-       (with-syntax 
-           ([(stmts ...)
-             (let loop 
-               ([work (syntax->list #'stmt.children)]
-                [defs (syntax-local-make-definition-context)]
-                [ctx (generate-expand-context)])
-               ;(display (make-string nest #\ ))
-               ;(display (length work)) (display (tick)) (newline)
-               (if (null? work)
-                   null
-                   (let-values ([(head rest) (values (car work) (cdr work))])
-                     ;(display head) (display " ") (display rest) (newline)
-                     (let-values 
-                         ([(head defs)
-                           (syntax-parse head
-                             [vars:decls 
-                              (let-values ([(head defs) (expand-and-extend head ctx defs)])
-                                (bind-and-seal defs (parse-def-names #'vars))
-                                (values head defs))]
-                             [impl
-                              (values 
-                               (local-expand head ctx #f defs)
-                               defs)])])
-                       (cons head (loop rest defs ctx))))))])
-         (set! nest (- nest 1))
-         (no-expand #'(block stmts ...)))]))))
+    (lambda (stx)
+      (set! nest (+ nest 1))
+      (syntax-parse stx
+        [stmt:cxx-block
+         (with-syntax 
+             ([(stmts ...)
+               (let loop 
+                 ([work (syntax->list #'stmt.children)]
+                  [defs (syntax-local-make-definition-context)]
+                  [ctx (generate-expand-context)])
+                 ;(display (make-string nest #\ ))
+                 ;(display (length work)) #;(display (tick)) (newline)
+                 (if (null? work)
+                     null
+                     (let-values ([(head rest) (values (car work) (cdr work))])
+                       ;(display head) (display " ") (display rest) (newline)
+                       (let-values 
+                           ([(head defs)
+                             (syntax-parse head
+                               [vars:decls 
+                                (let-values ([(head defs) (expand-and-extend head ctx defs)])
+                                  (bind-and-seal defs (parse-def-names #'vars))
+                                  (values head defs))]
+                               [impl
+                                (values 
+                                 (local-expand head ctx #f defs)
+                                 defs)])])
+                         (cons head (loop rest defs ctx))))))])
+           (set! nest (- nest 1))
+           (no-expand #'(block stmts ...)))]))))
 
 #;(((
      [(expr ...) 
@@ -189,35 +207,40 @@
   (lambda (stx ctx defs)
     (syntax-parse stx
       [(var:var-init)
-       (let*-values ([(name) #'var.name]
-                     [(name defs expr) 
-                      (handle-init #'var.exp
-                                   (lambda () (values name defs #'() ))
-                                   (lambda (eq-expr) 
-                                     (let-values 
-                                         ([(eq-expr defs)
-                                           (expand-and-extend eq-expr ctx defs)])
-                                       (bind-and-seal defs (list name))
-                                       (values (internal-definition-context-apply/loc defs name) 
-                                               defs 
-                                               (with-syntax 
-                                                   ([eq-expr eq-expr])
-                                                 #'(= . eq-expr)))))
-                                   (lambda (paren-expr) 
-                                     (let-values 
-                                         ([(paren-expr defs)
-                                           (expand-and-extend paren-expr ctx defs)])
-                                       (bind-and-seal defs (list name))
-                                       (values (internal-definition-context-apply/loc defs name) 
-                                               defs 
-                                               (with-syntax 
-                                                   ([paren-expr paren-expr])
-                                                 #'paren-expr)))))])
-         (values defs
-                 (with-syntax
-                     ([name name]
-                      [expr expr])
-                   #'(name . expr))))])))
+       (let*-values 
+           ([(name) #'var.name]
+            [(name defs expr) 
+             (handle-init 
+              #'var.exp
+              (lambda () (values name defs #'() ))
+              (lambda (eq-expr) 
+                (let-values 
+                    ([(eq-expr defs)
+                      (expand-and-extend eq-expr ctx defs)])
+                  (bind-and-seal defs (list name))
+                  (values 
+                   (internal-definition-context-apply/loc defs name) 
+                   defs 
+                   (with-syntax 
+                       ([eq-expr eq-expr])
+                     #'(= . eq-expr)))))
+              (lambda (paren-expr) 
+                (let-values 
+                    ([(paren-expr defs)
+                      (expand-and-extend paren-expr ctx defs)])
+                  (bind-and-seal defs (list name))
+                  (values 
+                   (internal-definition-context-apply/loc defs name) 
+                   defs 
+                   (with-syntax 
+                       ([paren-expr paren-expr])
+                     #'paren-expr)))))])
+         (values 
+          defs
+          (with-syntax
+              ([name name]
+               [expr expr])
+            #'(name . expr))))])))
 
 (define-for-syntax defun
   (lambda (stx ctx defs)
@@ -318,7 +341,7 @@
          (with-syntax 
              ([(declaration ...)
                (stx-map 
-                (lambda (declaration) ; Apparently this is eating a lot of time
+                (lambda (declaration)
                   (define out-form 
                     (syntax-parse declaration
                       [record:record-decl #'record]
@@ -342,7 +365,7 @@
     (with-syntax* ([stx-tag tag] 
                    [contents 
                     (stx-map 
-                     (lambda (stx) ; apparently this is also burning a lot of time in its own routines
+                     (lambda (stx)
                        (let* ([expanded (local-expand stx 'top-level #f)]
                               [expanded ((walk-expr-safe-ids (make-bound-id-table)) expanded)])
                          ;(display expanded) (newline)
