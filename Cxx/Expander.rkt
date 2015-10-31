@@ -35,6 +35,20 @@
 
 (struct skeleton-expansion (body table))
 
+(define-values-for-syntax
+  (init-clock tick)
+  (let
+      ([time 0])
+      (values
+       (lambda ()
+         (set! time (current-inexact-milliseconds))
+         " 0")
+       (lambda ()
+         (let ([pv-time time]
+               [now (current-inexact-milliseconds)])
+           (set! time now)
+           (string-append " " (~r (- now pv-time) #:precision 2)))))))
+
 (define-for-syntax macroize-skel-kind
   (lambda (skel-kind)
     (format-id
@@ -127,15 +141,19 @@
          (no-expand (if (stx-null? #'else-clause) #'(if cond child) #'(if cond child else else-clause))))])))
 
 (define-syntax block
+  (let ([nest 0])
   (lambda (stx) ; Apparently a ton of total time is here (as expected), but all in child-calls
-    (syntax-case stx ()
-      [(keyword stmts ... )
+    (set! nest (+ nest 1))
+    (syntax-parse stx
+      [stmt:cxx-block
        (with-syntax 
            ([(stmts ...)
              (let loop 
-               ([work (syntax->list #'(stmts ...))]
+               ([work (syntax->list #'stmt.children)]
                 [defs (syntax-local-make-definition-context)]
                 [ctx (generate-expand-context)])
+               ;(display (make-string nest #\ ))
+               ;(display (length work)) (display (tick)) (newline)
                (if (null? work)
                    null
                    (let-values ([(head rest) (values (car work) (cdr work))])
@@ -152,7 +170,8 @@
                                (local-expand head ctx #f defs)
                                defs)])])
                        (cons head (loop rest defs ctx))))))])
-         (no-expand #'(keyword stmts ...)))])))
+         (set! nest (- nest 1))
+         (no-expand #'(block stmts ...)))]))))
 
 #;(((
      [(expr ...) 
@@ -203,6 +222,7 @@
 (define-for-syntax defun
   (lambda (stx ctx defs)
     ;(display stx) (newline)
+    ;(display "starting defun") (display (tick)) (newline)
     (syntax-parse stx
       [func:fun-decl 
        (let ([defs (syntax-local-make-definition-context defs)]
@@ -213,20 +233,23 @@
          (syntax-local-bind-syntaxes kw-args #f defs)
          (internal-definition-context-seal defs)
          (no-expand
-          (with-syntax*
-              ([f-name (internal-definition-context-apply/loc defs #'func.name)]
-               [body (local-expand #'func.body (build-expand-context 'expression) #f defs)]
-               [(arg ...) 
-                (subs-decl-ids 
-                 (syntax->list #'func.args)
-                 (contextualize-args args defs))]
-               [(kw-arg ...) 
-                (subs-decl-ids
-                 (syntax->list #'func.kw-args)
-                 (contextualize-args kw-args defs))]
-               [((attribute-term ...) ...) ; This is a splicing class so jam all the terms together
-                #'func.attributes])
-            #'(defun func.storage-classes func.ret-type f-name (arg ... kw-arg ...) attribute-term ... ... body))))])))
+          (if (stx-null? #'func.body) 
+              stx
+              (with-syntax*
+                  ([f-name (internal-definition-context-apply/loc defs #'func.name)]
+                   [body (local-expand #'func.body (build-expand-context 'expression) #f defs)]
+                   [(arg ...) 
+                    (subs-decl-ids 
+                     (syntax->list #'func.args)
+                     (contextualize-args args defs))]
+                   [(kw-arg ...) 
+                    (subs-decl-ids
+                     (syntax->list #'func.kw-args)
+                     (contextualize-args kw-args defs))]
+                   [((attribute-term ...) ...) ; This is a splicing class so jam all the terms together
+                    #'func.attributes])
+                ;(display "putting the defun back together") (display (tick)) (newline)
+                #'(defun func.storage-classes func.ret-type f-name (arg ... kw-arg ...) attribute-term ... ... body)))))])))
 
 (define-for-syntax def
   (lambda (stx ctx defs)
@@ -270,11 +293,13 @@
 
 (define-syntax translation-unit
   (lambda (stx)
+    ;(display "starting up") (display (init-clock)) (newline)
     (syntax-parse stx
       [unit:tu-stx
        (let ([top-level-defs (syntax-local-make-definition-context)]
              [ctx (generate-expand-context)]
              [skel-ids (list #'Loop1d)])
+         ;(display "have a parse") (display (tick)) (newline)
          (syntax-local-bind-syntaxes 
           (map macroize-skel-kind skel-ids)
           (with-syntax
@@ -288,6 +313,8 @@
          (map 
           (lambda (skel-id)
             (hash-set! InitSkelIds (syntax->datum skel-id) (internal-definition-context-apply/loc top-level-defs (macroize-skel-kind skel-id)))) skel-ids)
+         ;(display "skeletons bound") (display (tick)) (newline)
+         stx
          (with-syntax 
              ([(declaration ...)
                (stx-map 

@@ -3,12 +3,18 @@
 ; and use Source Location information to check which identifiers are original and which are introduced
 ; Writer probably wants to use pretty print
 
-#;(translation-unit
+;;;;;;;;;;;;;;;;;;
+; Cuda here
+;;;;;;;;;;;;;;;;;;
+
+(translation-unit
  
- #;(def (() union {
-    (() (char (!) [128]) __mbstate8)
-    (() (long long (!)) _mbstateL)
-    }) (typedef () ((!)) __mbstate_t))
+ #;(def 
+     (() union 
+         {
+          (() (char (!) [128]) __mbstate8)
+          (() (long long (!)) _mbstateL)
+          }) (typedef () ((!)) __mbstate_t))
  
  (typedef () (const int * (* (!))([5])) foobar)
  
@@ -31,90 +37,118 @@
     (for ((def (() (int (!)) i = 0)) (< i argc) (i ++))
       (call printf "done\\n")))))
 
-#;(translation-unit
+;;;;;;;;;;;;;;;;;;;;;;;;;
+; Simple skeletons here
+;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun (extern ) (void * (!)) malloc ((() (unsigned long (!)) size)))
-(defun (extern ) (void (!)) free ((() (void * (!)) data)))
-(defun (extern ) (int (!)) puts ((() (const char * (!)) str)))
-(defun (extern ) (unsigned long (!)) strlen ((() (const char * (!)) str)))
-(defun () (int (!)) main ((() (int (!)) argc) (() (char * * (!)) argv)) (block
+(translation-unit
+ (defun (extern ) (void * (!)) malloc ((() (unsigned long (!)) size)))
+ (defun (extern ) (void (!)) free ((() (void * (!)) data)))
+ (defun (extern ) (int (!)) puts ((() (const char * (!)) str)))
+ (defun (extern ) (unsigned long (!)) strlen ((() (const char * (!)) str)))
+ (defun () (int (!)) main ((() (int (!)) argc) (() (char * * (!)) argv)) 
+   (block
     (def (() (int (!)) ret))
-    (if (== ((% argc 4)) 0) (block
-        (@ Loop1d (test_loop) (
-            [@ I]
-            [= 0]
-            [= argc]
-          )
+    (if (== ((% argc 4)) 0) 
+        (block
+         (@ Loop1d (test_loop) ([@ I] [= 0] [= argc])
             (block
-                (def (() (int (!)) i))
-                (@ I (test_iterator) (
-                    [= i]
-                  )
-                    ()
-                )
-                (if (> (call strlen (* ((+ argv i)))) 0)
-                    (((* ((+ argv i)))) ++)
-)
-                (call puts (* ((+ argv i))))
-            )
-        )
-        (def (() (const char (!)) nl = #\u0a))
-        (call puts (& nl))
-        (= ret 0)
-    ) else (block
-        (= ret (% argc 4))
-    ))
-    (return ret))
+             (def (() (int (!)) i))
+             (@ I (test_iterator) ([= i]) ())
+             (if (> (call strlen (* ((+ argv i)))) 0)
+                 (((* ((+ argv i)))) ++))
+             (call puts (* ((+ argv i))))))
+         (def (() (const char (!)) nl = #\u0a))
+         (call puts (& nl))
+         (= ret 0)) 
+        else 
+        (block
+         (= ret (% argc 4))))
+    (return ret))))
 
-)
+(translation-unit
+ (defun (extern ) (void * (!)) malloc ((() (unsigned long (!)) size)))
+ (defun (extern ) (void (!)) free ((() (void * (!)) data)))
+ (defun (extern ) (int (!)) puts ((() (const char * (!)) str)))
+ (defun (extern ) (unsigned long (!)) strlen ((() (const char * (!)) str)))
+ (defun () (int (!)) main ((() (int (!)) argc) (() (char * * (!)) argv)) 
+   (block
+    ; These two should generate equivalent loop bodies for now
+    (for ((def (() (int (!)) j = 0)) (< j argc) (j ++))
+      (block
+       (def (() (int (!)) i))
+       (= i j)
+       (if (> (call strlen (* ((+ argv i)))) 0)
+           (((* ((+ argv i)))) ++))
+       (call puts (* ((+ argv i))))))
+    (@ Loop1d (test_loop) ([@ I] [= 0] [= argc])
+       (block
+        (def (() (int (!)) i))
+        (@ I (test_iterator) ([= i]) ())
+        (if (> (call strlen (* ((+ argv i)))) 0)
+            (((* ((+ argv i)))) ++))
+        (call puts (* ((+ argv i))))))
+    
+    (return 0))))
 
-)
+
+;;;;;;;;;;;;;;;;;;;;;
+; No skeletons here
+;;;;;;;;;;;;;;;;;;;;;
 
 (translation-unit
 
-(defun (extern ) (void * (!)) malloc ((() (unsigned long (!)) size)))
-(defun (extern ) (void (!)) free ((() (void * (!)) data)))
-(defun (extern ) (int (!)) puts ((() (const char * (!)) str)))
-(defun (extern ) (unsigned long (!)) strlen ((() (const char * (!)) str)))
-(defun () (int (!)) main ((() (int (!)) argc) (() (char * * (!)) argv)) (block
+ (defun (extern ) (void * (!)) malloc ((() (unsigned long (!)) size)))
+ (defun (extern ) (void (!)) free ((() (void * (!)) data)))
+ (defun (extern ) (int (!)) puts ((() (const char * (!)) str)))
+ (defun (extern ) (unsigned long (!)) strlen ((() (const char * (!)) str)))
+ (defun () (int (!)) main ((() (int (!)) argc) (() (char * * (!)) argv)) 
+   (block
     (def (() (int (!)) ret))
-    (if (== ((% argc 4)) 0) (block
-        (for ((def (() (int (!)) j = 0)) (< j argc) (j ++))
+    (if (== ((% argc 4)) 0) 
+        (block
+         (for ((def (() (int (!)) j = 0)) (< j argc) (j ++))
+           (block
+            (def (() (int (!)) i))
+            (= i j)
+            (if (> (call strlen (* ((+ argv i)))) 0)
+                (((* ((+ argv i)))) ++))
+            (call puts (* ((+ argv i))))
+            
             (block
+             (for ((def (() (int (!)) j = 0)) (< j argc) (j ++))
+               (block
                 (def (() (int (!)) i))
                 (= i j)
                 (if (> (call strlen (* ((+ argv i)))) 0)
-                    (((* ((+ argv i)))) ++)
-)
-                (call puts (* ((+ argv i))))
-                
-                #;(block
-        (for ((def (() (int (!)) j = 0)) (< j argc) (j ++))
-            (block
-                (def (() (int (!)) i))
-                (= i j)
-                (if (> (call strlen (* ((+ argv i)))) 0)
-                    (((* ((+ argv i)))) ++)
-)
-                (call puts (* ((+ argv i))))
-                
-                
-            )
-        )
-        (def (() (const char (!)) nl = #\u0a))
-        (call puts (& nl))
-        (= ret 0)
-    )
-                
-            )
-        )
-        (def (() (const char (!)) nl = #\u0a))
-        (call puts (& nl))
-        (= ret 0)
-    ) else (block
-        (= ret (% argc 4))
-    ))
-    (return ret))
+                    (((* ((+ argv i)))) ++))
+                (call puts (* ((+ argv i))))))
+             (def (() (const char (!)) nl = #\u0a))
+             (call puts (& nl))
+             (= ret 0))))
+         (def (() (const char (!)) nl = #\u0a))
+         (call puts (& nl))
+         (= ret 0)) 
+        else 
+        (block
+         (= ret (% argc 4))))
+    (return ret))))
 
-)
-)
+(translation-unit
+ (defun () (int (!)) main ((() (int (!)) argc) (() (char * * (!)) argv))
+   (block 
+    (def (() (int (!)) ret = 0))
+    (def (() (int (!)) ret2 = 0))
+    (block 
+     (block
+      (def (() (int (!)) ret = 0))
+      (def (() (int (!)) ret2 = 0))
+      (block 
+       (block 
+        (block 
+         (def (() (int (!)) ret = 0))
+         (def (() (int (!)) ret2 = 0))
+         (block
+          (def (() (int (!)) ret = 0))
+          (def (() (int (!)) ret2 = 0))
+          (block (return 0)))))))))))

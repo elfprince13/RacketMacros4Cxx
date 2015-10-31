@@ -65,7 +65,7 @@
 (define-syntax-class cxx-decls
   (pattern decl:decls))
 (define-syntax-class cxx-block
-  (pattern ((~datum block) child:cxx-stmt ... (~bind [children #'(child ...)]))))
+  (pattern ((~datum block) child ... (~bind [children #'(child ...)]))))
 (define-syntax-class cxx-for
   (pattern ((~datum for) ((~or init:decls init:expr) cond:cxx-expr update:cxx-expr) child:cxx-stmt)))
 (define-syntax-class cxx-while
@@ -116,7 +116,7 @@
 
 ; we should set a fail-when on arg
 (define-syntax-class fun-decl
-  (pattern ((~datum defun) (storage ...) (~var ret-type cxx-type) (~var name id) (arg:var-decl ... kw-arg:var-decl ...) attr:c-attribute ...  (~var body cxx-stmt) 
+  (pattern ((~datum defun) (storage ...) (~var ret-type cxx-type) (~var name id) (arg:var-decl ... kw-arg:var-decl ...) attr:c-attribute ...  (~var body cxx-block) 
              (~bind [storage-classes #'(storage ...)] [args #'(arg ...)] [kw-args #'(kw-arg ...)] [attributes #'(attr ...)])))
   (pattern ((~datum defun) (storage ...) (~var ret-type cxx-type) (~var name id) (arg:var-decl ... kw-arg:var-decl ...) attr:c-attribute ... 
              (~bind [storage-classes #'(storage ...)] [args #'(arg ...)] [kw-args #'(kw-arg ...)] [attributes #'(attr ...)] [body #'()])))) ; forward declaration
