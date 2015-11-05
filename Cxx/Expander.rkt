@@ -99,6 +99,52 @@
                    #;(cuda-loop1d #'child)
                    #'(for ((def (() (int (!)) itr-id = itr-init)) (< itr-id itr-final) (++ itr-id)) child)))]))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;
+; Expression definitions
+;;;;;;;;;;;;;;;;;;;;;;;;
+(define-syntax make-n-op
+  (lambda (stx)
+    (syntax-parse stx
+      #:literals (make-n-op)
+      [(make-n-op op:id (~between n:exact-nonnegative-integer 1 2) ...)
+       (let*
+           ([op-counts (syntax->datum #'(n ...))]
+            [min-count (car op-counts)]
+            [max-count 
+             (if (eq? 2 (length op-counts))
+                 (cadr op-counts)
+                 min-count)])
+         (with-syntax
+             ([min-count min-count]
+              [max-count max-count])
+           #'(define-syntax op
+               (lambda (stx)
+                 (syntax-parse stx
+                     #:literals (op)
+                     [(op (~between term:cxx-expr min-count max-count) (... ...))
+                      ;(display "meow") (display 'op) (newline)
+                      ;#''(term (... ...))
+                      (no-expand stx)])))))])))
+
+(make-n-op = 2)
+(make-n-op == 2)
+(make-n-op >= 2)
+(make-n-op <= 2)
+(make-n-op > 2)
+(make-n-op < 2)
+(make-n-op + 2)
+(make-n-op - 2)
+(make-n-op / 2)
+(make-n-op * 1 2)
+(make-n-op & 1 2)
+(make-n-op && 2)
+(make-n-op ^ 2)
+(make-n-op ?: 3)
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;
+; Statement definitions
+;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define-syntax @
   (lambda (stx)
@@ -144,6 +190,17 @@
               [child (local-expand #'stmt.child context #f defs)])
            (no-expand 
             #'(for (init cond update) child)))]))))
+
+(define-syntax return
+  (lambda (stx)
+    (syntax-parse stx
+      [stmt:cxx-return
+       (with-syntax
+           ([ret-val 
+             (if (stx-null? #'stmt.ret-val) 
+                 #'()
+                 (local-expand #'(stmt.ret-val) 'expression #f))])
+         (no-expand #'(return . ret-val)))])))
 
 (define-syntax -if
   (lambda (stx)
@@ -202,6 +259,11 @@
                (map (curryr expand-stmt skels) (syntax->list #'(expr ...)))))
           (datum->syntax stmt expr-components)))]
      [any #'any]))) 
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;
+; Define definitions
+;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define-for-syntax init-var-to-context
   (lambda (stx ctx defs)
@@ -313,6 +375,10 @@
                 #'(extra-types ...)
                 #'(extra-vars ...))]) 
            #'(def var extras ...))))])))
+
+;;;;;;;;;;;;;;;;;;;;;;;;
+; Top-level definitions
+;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define-syntax translation-unit
   (lambda (stx)

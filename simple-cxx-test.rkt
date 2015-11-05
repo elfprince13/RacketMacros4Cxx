@@ -135,6 +135,9 @@
     (return ret))))
 
 (translation-unit
+ (defun () (void (!)) voidrettest ()
+   (block 
+    (return)))
  (defun () (int (!)) main ((() (int (!)) argc) (() (char * * (!)) argv))
    (block 
     (def (() (int (!)) ret = 0))

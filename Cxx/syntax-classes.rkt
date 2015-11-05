@@ -66,6 +66,9 @@
   (pattern decl:decls))
 (define-syntax-class cxx-block
   (pattern ((~datum block) child ... (~bind [children #'(child ...)]))))
+(define-syntax-class cxx-return
+  (pattern ((~datum return) (~bind [ret-val #'()])))
+  (pattern ((~datum return) ret-val:cxx-expr)))
 (define-syntax-class cxx-for
   (pattern ((~datum for) ((~or init:decls init:expr) cond:cxx-expr update:cxx-expr) child:cxx-stmt)))
 (define-syntax-class cxx-while
