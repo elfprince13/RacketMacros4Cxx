@@ -86,7 +86,7 @@
                          (syntax-parse stx
                            [(_ (name:id) inner-args:skeleton-args child:cxx-stmt)
                             (with-syntax 
-                                ([itr-id #'itr-id]
+                                ([itr-id (syntax-local-introduce #'itr-id)]
                                  [local-id (stx-car (stx-cdr (stx-car #'inner-args)))])
                               #'(= local-id itr-id))])))
                    'expression null) 
@@ -96,9 +96,9 @@
                      ([itr-id itr-id]
                       [itr-init itr-init]
                       [itr-final itr-final]
-                      [child (local-expand #'child ctx #f defs)])
+                      [child #'child])
                    #;(cuda-loop1d #'child)
-                   #'(for ((def (() (int (!)) itr-id = itr-init)) (< itr-id itr-final) (++ itr-id)) child)))]))))
+                   (local-expand #'(for ((def (() (int (!)) itr-id = itr-init)) (< itr-id itr-final) (++< itr-id)) child) ctx #f defs)))]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ; Expression definitions
@@ -175,8 +175,7 @@
               InitSkelIds
               (syntax->datum #'skel.kind) ; If it's a top-level thingy, we shouldn't have any problem looking it up. 
               (lambda () (macroize-skel-kind #'skel.kind)))]) ; If not, we shouldn't have any problem with the marks
-         (local-expand #'(skel-macro (skel.name) skel.args skel.child) (generate-expand-context) #f))]
-      )))
+         (local-expand #'(skel-macro (skel.name) skel.args skel.child) (generate-expand-context) #f))])))
 
 (define-syntax while
   (lambda (stx)
@@ -461,7 +460,7 @@
                     (stx-map 
                      (lambda (stx)
                        (let* ([expanded (local-expand stx 'top-level #f)]
-                              [expanded ((walk-expr-safe-ids (make-bound-id-table)) expanded)])
+                              #;[expanded ((walk-expr-safe-ids (make-bound-id-table)) expanded)])
                          ;(display expanded) (newline)
                          
                          (make-cpp-tu expanded))) 
