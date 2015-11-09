@@ -364,41 +364,45 @@
   (lambda (stx ctx defs)
     (syntax-parse stx
       [vars:decls
-       (values 
-        defs 
-        (no-expand 
-         (with-syntax*
-             ([(extra-types ...) #'vars.extra-type-infos]
-              [(vars ...) 
-               (map
-                (lambda (stx)
-                  (let-values 
-                      ([(new-defs new-stx)
-                        (syntax-parse stx
-                          [decl:var-decl
-                           (let-values 
-                               ([(new-defs new-init) (init-var-to-context #'decl.init ctx defs)])
-                             (values 
-                              new-defs 
-                              #`(decl.storage-classes decl.type-info #,@new-init #,@#'decl.attributes)))]
-                          [(init:var-init) (init-var-to-context #'init ctx defs)])])
-                    (set! defs new-defs)
-                    new-stx))
-                (cons
-                 #'vars.var
-                 (syntax->list #'vars.extra-vars)))] ; heavy-lifting goes here
-              [var (stx-car #'(vars ...))]
-              [(extra-vars ...) (stx-cdr #'(vars ...))]
-              [(extras ...) 
-               (stx-map 
-                (lambda (t-stx v-stx)
-                  (with-syntax
-                      ([(type ...) t-stx]
-                       [(init ...) v-stx])
-                    #'((type ...) init ...)))
-                #'(extra-types ...)
-                #'(extra-vars ...))]) 
-           #'(def var extras ...))))])))
+       (let 
+           ([def-stx 
+              (no-expand 
+               (with-syntax*
+                   ([(extra-types ...) #'vars.extra-type-infos]
+                    [(vars ...) 
+                     (map
+                      (lambda (stx)
+                        (let-values 
+                            ([(new-defs new-stx)
+                              (syntax-parse stx
+                                [decl:var-decl
+                                 (let-values 
+                                     ([(new-defs new-init) (init-var-to-context #'decl.init ctx defs)])
+                                   (values 
+                                    new-defs 
+                                    #`(decl.storage-classes decl.type-info #,@new-init #,@#'decl.attributes)))]
+                                ; This shouldn't happen in a (def ...)
+                                #;[(init:var-init) (init-var-to-context #'init ctx defs)])])
+                          (set! defs new-defs)
+                          new-stx))
+                      (cons
+                       #'vars.var
+                       (syntax->list #'vars.extra-vars)))] ; heavy-lifting goes here
+                    [var (stx-car #'(vars ...))]
+                    [(extra-vars ...) (stx-cdr #'(vars ...))]
+                    [(extras ...) 
+                     (stx-map 
+                      (lambda (t-stx v-stx)
+                        (with-syntax
+                            ([(type ...) t-stx]
+                             [(init ...) v-stx])
+                          #'((type ...) init ...)))
+                      #'(extra-types ...)
+                      #'(extra-vars ...))]) 
+                 #'(def var extras ...)))])
+         (values 
+          defs 
+          def-stx))])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ; Top-level definitions
