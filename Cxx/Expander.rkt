@@ -104,32 +104,6 @@
 ; Expression definitions
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
-
-(define-for-syntax handle-expr-list
-  (lambda (stx-l)
-    (stx-map
-     (lambda (stx)
-       (handle-expr stx))
-       stx-l)))
-
-(define-for-syntax handle-expr
-  (lambda (stx [ctxt 'expression] [defs #f])
-    (let* ([pair? (stx-pair? stx)]
-           [head (if pair? (stx-car stx) stx)]
-           [id? (identifier? head)]
-           [macro? (and pair? id? (procedure? (syntax-local-value head (lambda () #f) defs)))])
-      (cond 
-        [macro? 
-         (begin
-           ;(display (~a stx "is a macro")) (newline)
-           (local-expand stx ctxt #f defs))]
-        [(and (not pair?) id?) head #;(syntax-local-introduce head)]
-        [pair? 
-         (with-syntax
-             ([(term ...) (stx-map (lambda (term) (handle-expr term ctxt defs)) stx)])
-           #'(term ...))]
-        [else stx]))))
-
 (define-syntax make-n-op
   (lambda (stx)
     (syntax-parse stx
@@ -201,7 +175,7 @@
               InitSkelIds
               (syntax->datum #'skel.kind) ; If it's a top-level thingy, we shouldn't have any problem looking it up. 
               (lambda () (macroize-skel-kind #'skel.kind)))]) ; If not, we shouldn't have any problem with the marks
-         (local-expand #'(skel-macro (skel.name) skel.args skel.child) 'expression #f))]
+         (local-expand #'(skel-macro (skel.name) skel.args skel.child) (generate-expand-context) #f))]
       )))
 
 (define-syntax while
@@ -209,8 +183,8 @@
     (syntax-parse stx
       [stmt:cxx-while 
        (with-syntax 
-           ([cond (local-expand #'stmt.cond 'expression #f)]
-            [child (local-expand #'stmt.child 'expression #f)])
+           ([cond (handle-expr #'stmt.cond)]
+            [child (local-expand #'stmt.child (generate-expand-context) #f)])
          (no-expand #'(while cond child)))])))
 
 (define-syntax for
@@ -224,11 +198,11 @@
              ([(defs init)
                (syntax-parse #'stmt.init
                  [init:decls (def #'init context defs)]
-                 [init:cxx-expr (values defs #'init)])])
+                 [init:cxx-expr (values defs (handle-expr #'init context defs))])])
            (with-syntax* 
                ([init init]
-                [cond (local-expand #'stmt.cond context #f defs)]
-                [update (local-expand #'stmt.update context #f defs)]
+                [cond (handle-expr #'stmt.cond context defs)]
+                [update (handle-expr #'stmt.update context defs)]
                 [child (local-expand #'stmt.child context #f defs)])
              (no-expand 
               #'(for (init cond update) child))))]))))
@@ -241,7 +215,7 @@
            ([ret-val 
              (if (stx-null? #'stmt.ret-val) 
                  #'()
-                 (local-expand #'(stmt.ret-val) 'expression #f))])
+                 (handle-expr #'(stmt.ret-val)))])
          (no-expand #'(return . ret-val)))])))
 
 (define-syntax -if
@@ -249,12 +223,12 @@
     (syntax-parse stx
       [stmt:cxx-if 
        (with-syntax 
-           ([cond (local-expand #'stmt.cond 'expression #f)]
-            [child (local-expand #'stmt.child 'expression #f)]
+           ([cond (handle-expr #'stmt.cond)]
+            [child (local-expand #'stmt.child (generate-expand-context) #f)]
             [else-clause 
              (if (stx-null? #'stmt.else-clause)
                  #'stmt.else-clause
-                 (local-expand #'stmt.else-clause 'expression #f))])
+                 (local-expand #'stmt.else-clause (generate-expand-context) #f))])
          (no-expand (if (stx-null? #'else-clause) #'(if cond child) #'(if cond child else else-clause))))])))
 
 (define-syntax block
@@ -278,10 +252,14 @@
                        (let-values 
                            ([(head defs)
                              (syntax-parse head
-                               [vars:decls 
+                               [vars:cxx-decls 
                                 (let-values ([(defs head) (def head ctx defs)])
                                   (values head defs))]
-                               [impl
+                               [expr:cxx-expr
+                                (values
+                                 (handle-expr head ctx defs)
+                                 defs)]
+                               [impl:cxx-stmt
                                 (values 
                                  (local-expand head ctx #f defs)
                                  defs)])])

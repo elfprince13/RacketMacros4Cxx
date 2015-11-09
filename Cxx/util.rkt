@@ -13,6 +13,10 @@
 
 (provide (all-defined-out))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Shortcut routines for various intdef-ctx patterns
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (define internal-definition-context-apply/loc
   (lambda (def-ctx id) 
     (with-syntax
@@ -29,20 +33,6 @@
   (lambda (defs id-list [bind-to #f])
     (syntax-local-bind-syntaxes id-list bind-to defs)
     (internal-definition-context-seal defs)))
-
-
-
-#;(define loop-decls-and-bodies 
-    (lambda (parser decl-handler body-handler)
-      (let*-values 
-          ([(decl-pat decl-extractor decl-responder) decl-handler]
-           [(body-pat body-expander) body-handler]
-           [loop
-            (lambda (stx)
-              (syntax-parse stx
-                [decl-pat ]
-                [body-pat ]))])
-        )))
 
 (define contextualize-args
   (lambda (args defs)
@@ -86,6 +76,9 @@
 
 #;(parse-arg-names #'((() int a (5)) (() float b = 6.0) (() char c)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Random selection of other helpers.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define walk-expr-safe-ids
   (lambda (bind-table)
@@ -127,6 +120,11 @@
  (lambda (stx)
    (symbol->string (syntax->datum stx))))
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Some reusable handlers for various expansion events
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (define no-expand
   (lambda (stx)
     (syntax-case stx ()
@@ -136,6 +134,31 @@
              (syntax-local-introduce ; cancel marks to make it clear it's a keyword and not a local binding
               (datum->syntax #f (syntax->datum #'macro) #'macro #'macro))]) ; strip the macro definition to stop expansion
          #'(macro args ...))])))
+
+(define handle-expr-list
+  (lambda (stx-l)
+    (stx-map
+     (lambda (stx)
+       (handle-expr stx))
+       stx-l)))
+
+(define handle-expr
+  (lambda (stx [ctxt 'expression] [defs #f])
+    (let* ([pair? (stx-pair? stx)]
+           [head (if pair? (stx-car stx) stx)]
+           [id? (identifier? head)]
+           [macro? (and pair? id? (procedure? (syntax-local-value head (lambda () #f) defs)))])
+      (cond 
+        [macro? 
+         (begin
+           ;(display (~a stx "is a macro")) (newline)
+           (local-expand stx ctxt #f defs))]
+        [(and (not pair?) id?) head #;(syntax-local-introduce head)]
+        [pair? 
+         (with-syntax
+             ([(term ...) (stx-map (lambda (term) (handle-expr term ctxt defs)) stx)])
+           #'(term ...))]
+        [else stx]))))
 
 (define-syntax handle-init
   (lambda (stx)
@@ -148,53 +171,4 @@
                (if (eq? '= (syntax->datum head))
                    (eq-case exp)
                    (paren-case init-exp))))])))
-
-#;(define-syntax print
-    (lambda (stx)
-      (syntax-case stx (print)
-        [(print id) (no-expand stx)])))
-
-#;(define-syntax dummy
-    (lambda (stx)
-      (syntax-case stx ()
-        [(dummy) (no-expand stx)])))
-
-#;(define-syntax set!
-    (lambda (stx) 
-      (syntax-case stx (set!)
-        [(set! id val) 
-         (no-expand stx)])))
-
-#;(define-syntax let*
-    (lambda (stx)
-      (syntax-case stx (let*)
-        [(let* ((id expr)) bodies ...)
-         (let ([intdef (syntax-local-make-definition-context)])
-           (syntax-local-bind-syntaxes (list #'id) #f intdef)
-           (internal-definition-context-seal intdef)
-           (no-expand
-            (with-syntax*
-                ([(bodies ...) 
-                  (stx-map 
-                   (lambda (body)
-                     (with-syntax ([body body])
-                       (local-expand #'body (build-expand-context 'expression) #f intdef)))
-                   #'(bodies ...))]
-                 [id-tmp (internal-definition-context-apply intdef #'id)]
-                 [id (syntax/loc #'id id-tmp)]
-                 [expr (local-expand #'expr 'expression #f)]) ; Strip the original racket definitions!
-              #'(let* ((id expr)) bodies ...))))]
-        [(let* ((id expr) (more-ids more-exprs) ...) bodies ...)
-         (with-syntax
-             ([body #'(let* ((more-ids more-exprs) ...) bodies ...)])
-           #'(let* ((id expr)) body))])))
-
-#;(define-syntax swap 
-    (lambda (stx)
-      (syntax-case stx (swap)
-        [(swap a b) 
-         (with-syntax ()
-           #'(let* ([tmp a])
-               (set! a b)
-               (set! b tmp)))])))
 
