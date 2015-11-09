@@ -7,7 +7,7 @@
 ; Cuda here
 ;;;;;;;;;;;;;;;;;;
 
-(translation-unit
+#;(translation-unit
  
  #;(def 
      (() union 
@@ -41,7 +41,7 @@
 ; Simple skeletons here
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(translation-unit
+#;(translation-unit
  (defun (extern ) (void * (!)) malloc ((() (unsigned long (!)) size)))
  (defun (extern ) (void (!)) free ((() (void * (!)) data)))
  (defun (extern ) (int (!)) puts ((() (const char * (!)) str)))
@@ -66,7 +66,7 @@
          (= ret (% argc 4))))
     (return ret))))
 
-(translation-unit
+#;(translation-unit
  (defun (extern ) (void * (!)) malloc ((() (unsigned long (!)) size)))
  (defun (extern ) (void (!)) free ((() (void * (!)) data)))
  (defun (extern ) (int (!)) puts ((() (const char * (!)) str)))
@@ -134,7 +134,7 @@
          (= ret (% argc 4))))
     (return ret))))
 
-(translation-unit
+#;(translation-unit
  (defun () (void (!)) voidrettest ()
    (block 
     (return)))

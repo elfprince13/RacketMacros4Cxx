@@ -9,6 +9,7 @@
    syntax/context
    syntax/id-table
    syntax/parse
+   ;syntax/parse/debug
    syntax/stx))
 
 (require 
@@ -102,6 +103,33 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ; Expression definitions
 ;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(define-for-syntax handle-expr-list
+  (lambda (stx-l)
+    (stx-map
+     (lambda (stx)
+       (handle-expr stx))
+       stx-l)))
+
+(define-for-syntax handle-expr
+  (lambda (stx [ctxt 'expression] [defs #f])
+    (let* ([pair? (stx-pair? stx)]
+           [head (if pair? (stx-car stx) stx)]
+           [id? (identifier? head)]
+           [macro? (and pair? id? (procedure? (syntax-local-value head (lambda () #f) defs)))])
+      (cond 
+        [macro? 
+         (begin
+           ;(display (~a stx "is a macro")) (newline)
+           (local-expand stx ctxt #f defs))]
+        [(and (not pair?) id?) head #;(syntax-local-introduce head)]
+        [pair? 
+         (with-syntax
+             ([(term ...) (stx-map (lambda (term) (handle-expr term ctxt defs)) stx)])
+           #'(term ...))]
+        [else stx]))))
+
 (define-syntax make-n-op
   (lambda (stx)
     (syntax-parse stx
@@ -117,14 +145,16 @@
          (with-syntax
              ([min-count min-count]
               [max-count max-count])
+           ;(display (~a (list "Meow:" #''op #'min-count #'max-count))) (newline)
            #'(define-syntax op
                (lambda (stx)
                  (syntax-parse stx
                      #:literals (op)
                      [(op (~between term:cxx-expr min-count max-count) (... ...))
-                      ;(display "meow") (display 'op) (newline)
                       ;#''(term (... ...))
-                      (no-expand stx)])))))])))
+                      (with-syntax
+                          ([(term (... ...)) (handle-expr-list #'(term (... ...)))])
+                          (no-expand #'(op term (... ...))))])))))])))
 
 (make-n-op = 2)
 (make-n-op == 2)
@@ -140,6 +170,21 @@
 (make-n-op && 2)
 (make-n-op ^ 2)
 (make-n-op ?: 3)
+
+(define-syntax call
+  (lambda (stx)
+    #;(begin
+      (display "attempting to expand call ") (newline)
+      (display stx) (newline)
+      (display (syntax-class-parse cxx-expr stx)) (newline)
+      (display (debug-parse stx (call callee:cxx-expr arg:cxx-expr ...))) (newline))
+    (syntax-parse stx
+        [(call callee:cxx-expr arg:cxx-expr ...)
+         (with-syntax 
+             ([callee (handle-expr #'callee)]
+              [(arg ...) (handle-expr-list #'(arg ...))])
+           (no-expand #'(call callee arg ...)))])))
+
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
@@ -171,25 +216,22 @@
 (define-syntax for
   (lambda (stx)
     (let 
-        ([defs #f]
+        ([defs (syntax-local-make-definition-context)]
          [context (generate-expand-context)])
       (syntax-parse stx
         [stmt:cxx-for
-         (with-syntax* 
-             ([init 
+         (let-values
+             ([(defs init)
                (syntax-parse #'stmt.init
-                 [init:decls 
-                  (let-values 
-                      ([(for-defs init) 
-                        (def #'init context defs)]) ;this should handle sealing the additions too
-                    (set! defs for-defs)
-                    init)]
-                 [init:cxx-expr #'init])]
-              [cond (local-expand #'stmt.cond context #f defs)]
-              [update (local-expand #'stmt.update context #f defs)]
-              [child (local-expand #'stmt.child context #f defs)])
-           (no-expand 
-            #'(for (init cond update) child)))]))))
+                 [init:decls (def #'init context defs)]
+                 [init:cxx-expr (values defs #'init)])])
+           (with-syntax* 
+               ([init init]
+                [cond (local-expand #'stmt.cond context #f defs)]
+                [update (local-expand #'stmt.update context #f defs)]
+                [child (local-expand #'stmt.child context #f defs)])
+             (no-expand 
+              #'(for (init cond update) child))))]))))
 
 (define-syntax return
   (lambda (stx)
@@ -237,8 +279,7 @@
                            ([(head defs)
                              (syntax-parse head
                                [vars:decls 
-                                (let-values ([(head defs) (expand-and-extend head ctx defs)])
-                                  (bind-and-seal defs (parse-def-names #'vars))
+                                (let-values ([(defs head) (def head ctx defs)])
                                   (values head defs))]
                                [impl
                                 (values 
@@ -274,7 +315,12 @@
             [(name defs expr) 
              (handle-init 
               #'var.exp
-              (lambda () (values name defs #'() ))
+              (lambda ()
+                (bind-and-seal defs (list name))
+                (values 
+                 (internal-definition-context-apply/loc defs name) 
+                 defs 
+                 #'()))
               (lambda (eq-expr) 
                 (let-values 
                     ([(eq-expr defs)
