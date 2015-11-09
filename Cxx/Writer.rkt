@@ -9,7 +9,19 @@
 
 (define make-cpp-expr 
   (lambda (expr) 
-    (syntax-parse expr 
+    (syntax-parse expr
+      [((~and unop
+            (~or 
+             (~datum >++)
+             (~datum >--)
+             (~datum ++<)
+             (~datum --<))) arg)
+       (let
+           ([op-str (make-cpp-expr #'unop)]
+            [arg-str (make-cpp-expr #'arg)])
+         (if (char=? (string-ref op-str 0) #\>)
+             (string-append arg-str " " (substring op-str 1 3))
+             (string-append (substring op-str 0 2)  " "  arg-str)))]
       [((~datum call) callee args ...) 
        (string-append (make-cpp-expr #'callee) "("
                       (string-join 

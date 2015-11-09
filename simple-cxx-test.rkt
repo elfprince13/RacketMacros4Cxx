@@ -34,7 +34,7 @@
     (def (() (int (!)) j) (((!)) k = 0))
     (while (!= j k)
            (call printf "done\\n"))
-    (for ((def (() (int (!)) i = 0)) (< i argc) (i ++))
+    (for ((def (() (int (!)) i = 0)) (< i argc) (>++ i))
       (call printf "done\\n")))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -56,7 +56,7 @@
              (def (() (int (!)) i))
              (@ I (test_iterator) ([= i]) ())
              (if (> (call strlen (* ((+ argv i)))) 0)
-                 (((* ((+ argv i)))) ++))
+                 (>++ ((* ((+ argv i))))))
              (call puts (* ((+ argv i))))))
          (def (() (const char (!)) nl = #\u0a))
          (call puts (& nl))
@@ -66,7 +66,7 @@
          (= ret (% argc 4))))
     (return ret))))
 
-#;(translation-unit
+(translation-unit
  (defun (extern ) (void * (!)) malloc ((() (unsigned long (!)) size)))
  (defun (extern ) (void (!)) free ((() (void * (!)) data)))
  (defun (extern ) (int (!)) puts ((() (const char * (!)) str)))
@@ -74,19 +74,19 @@
  (defun () (int (!)) main ((() (int (!)) argc) (() (char * * (!)) argv)) 
    (block
     ; These two should generate equivalent loop bodies for now
-    (for ((def (() (int (!)) j = 0)) (< j argc) (j ++))
+    (for ((def (() (int (!)) j = 0)) (< j argc) (>++ j))
       (block
        (def (() (int (!)) i))
        (= i j)
        (if (> (call strlen (* ((+ argv i)))) 0)
-           (((* ((+ argv i)))) ++))
+           (>++ ((* ((+ argv i))))))
        (call puts (* ((+ argv i))))))
     (@ Loop1d (test_loop) ([@ I] [= 0] [= argc])
        (block
         (def (() (int (!)) i))
         (@ I (test_iterator) ([= i]) ())
         (if (> (call strlen (* ((+ argv i)))) 0)
-            (((* ((+ argv i)))) ++))
+            (>++ ((* ((+ argv i))))))
         (call puts (* ((+ argv i))))))
     
     (return 0))))
@@ -96,7 +96,7 @@
 ; No skeletons here
 ;;;;;;;;;;;;;;;;;;;;;
 
-(translation-unit
+#;(translation-unit
 
  (defun (extern ) (void * (!)) malloc ((() (unsigned long (!)) size)))
  (defun (extern ) (void (!)) free ((() (void * (!)) data)))
@@ -107,21 +107,21 @@
     (def (() (int (!)) ret))
     (if (== ((% argc 4)) 0) 
         (block
-         (for ((def (() (int (!)) j = 0)) (< j argc) (j ++))
+         (for ((def (() (int (!)) j = 0)) (< j argc) (>++ j))
            (block
             (def (() (int (!)) i))
             (= i j)
             (if (> (call strlen (* ((+ argv i)))) 0)
-                (((* ((+ argv i)))) ++))
+                (>++ ((* ((+ argv i))))))
             (call puts (* ((+ argv i))))
             
             (block
-             (for ((def (() (int (!)) j = 0)) (< j argc) (j ++))
+             (for ((def (() (int (!)) j = 0)) (< j argc) (>++ j))
                (block
                 (def (() (int (!)) i))
                 (= i j)
                 (if (> (call strlen (* ((+ argv i)))) 0)
-                    (((* ((+ argv i)))) ++))
+                    (>++ ((* ((+ argv i))))))
                 (call puts (* ((+ argv i))))))
              (def (() (const char (!)) nl = #\u0a))
              (call puts (& nl))

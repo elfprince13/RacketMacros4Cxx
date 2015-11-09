@@ -145,6 +145,11 @@
 (make-n-op ^ 2)
 (make-n-op ?: 3)
 
+(make-n-op >-- 1)
+(make-n-op >++ 1)
+(make-n-op --< 1)
+(make-n-op ++< 1)
+
 (define-syntax call
   (lambda (stx)
     #;(begin
