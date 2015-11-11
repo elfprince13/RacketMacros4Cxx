@@ -34,9 +34,8 @@
        (begin
          ;(display "this is a paren-expr: ") (display expr) (newline)
          ; Need to figure out how to preserve []
-         #;(if (not (eq? (syntax-property expr 'paren-shape) #\())
-             (begin (display expr) (newline) (syntax-property expr 'paren-shape) (newline))
-             (void))
+         #;(when (not (eq? (syntax-property expr 'paren-shape) #\())
+             (begin (display expr) (newline) (syntax-property expr 'paren-shape) (newline)))
        (string-append "(" (make-cpp-expr #'(paren-expr ...)) ")"))]
       [(operator arg1 arg2)
        (string-append (make-cpp-expr #'arg1) " " (make-cpp-expr #'operator) " " (make-cpp-expr #'arg2))]

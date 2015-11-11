@@ -81,61 +81,27 @@
 ; Random selection of other helpers.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define walk-expr-safe-ids
-  (lambda (bind-table uniq-table)
+(define walk-decls
+  (lambda (leaf-f decl-f iter-f)
     (letrec 
-        ([safe-print-id 
-          (lambda (stx)
-            (if (identifier? stx)
-                (dict-ref bind-table stx stx)
-                stx))]
-         [ensure-unique
-          (lambda (id-l)
-            ;(emit-remark "outside loop:" (car id-l) (~a (syntax-original? (car id-l))))
-            (for ([id id-l])
-              ;(emit-remark "inside loop:" id (~a (syntax-original? id) (syntax-property id 'original?)))
-              (let
-                ([safe-id 
-                  (if (syntax-original? (syntax-local-introduce id))
-                      #;(let ()
-                        (display "original: ") (display id) (newline)
-                        id)
-                      id
-                      (let loop
-                        ([btv (generate-temporary id)])
-                        ;(display "not original: ") (display id) (display btv) (newline)
-                        (if (set-member? uniq-table btv)
-                            (loop)
-                            (begin
-                              (dict-set! bind-table id btv)
-                              btv))))])
-                (set-add! uniq-table safe-id))))]
-         [walk-tree
-          (lambda (stx-l)
-            ;(display "walking ") (display stx-l) (newline)
-            (with-syntax
-                 ([(seq ...) (stx-map parse-node stx-l)])
-                 #'(seq ...)))]
-         [parse-node 
+        ([parse-node 
           (lambda (stx)
             ;(display "parsing ") (display stx) (newline) 
             (syntax-parse stx
               [func:fun-decl
                ;(emit-local-step (stx-car #'func.args) (car (parse-arg-names #'func.args)) #:id #'parse-node-func)
                ;(emit-remark "The local step shown can be used to test if original is preserved by parse-arg-names")
-               (ensure-unique (parse-arg-names #'func.args))
-               (walk-tree stx)]
+               (decl-f (parse-arg-names #'func.args))
+               (iter-f parse-node stx)]
               [decl:cxx-decls
-               (ensure-unique (parse-def-names stx))
-               (walk-tree stx)]
+               (decl-f (parse-def-names stx))
+               (iter-f parse-node stx)]
               [(seq ...)
                ;(display "seq ...") (newline)
-               (let ([walked-tree (walk-tree stx)])
-                 ;(emit-local-step stx walked-tree #:id #'parse-node-seq)
-                 walked-tree)]
+               (iter-f parse-node stx)]
               [atom 
                ;(display "atom") (newline)
-               (safe-print-id stx)]))]) 
+               (leaf-f stx)]))]) 
       parse-node)))
 
 (define string-from-stx 

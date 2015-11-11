@@ -4,6 +4,7 @@
   (for-syntax 
    macro-debugger/emit
    racket/format
+   racket/function
    racket/dict
    racket/set
    racket/syntax
@@ -452,7 +453,47 @@
                     (stx-map 
                      (lambda (stx)
                        (let* ([expanded (local-expand stx 'top-level #f)]
-                              [expanded-safe ((walk-expr-safe-ids (make-bound-id-table) (mutable-set)) expanded)])
+                              [expanded-safe 
+                               (let*
+                                   ([uniq-table (mutable-set)]
+                                    [leaf-f (thunk* (void))]
+                                    [decl-f
+                                     (lambda (id-l)
+                                       (for ([id id-l])
+                                         (when (syntax-original? (syntax-local-introduce id))
+                                           (set-add! uniq-table (syntax->datum id))
+                                           )))]
+                                    [iter-f
+                                     (lambda (parse-node stx-l)
+                                       (for ([child (syntax->list stx-l)])
+                                         (parse-node child)))])
+                                 ((walk-decls leaf-f decl-f iter-f) expanded) ; walk once to catalog all the original ids
+                                 (let*
+                                     ([bind-table (make-bound-id-table)]
+                                      [leaf-f 
+                                       (lambda (stx)
+                                         (if (identifier? stx)
+                                             (dict-ref bind-table stx stx)
+                                             stx))]
+                                      [decl-f
+                                       (lambda (id-l)
+                                         (for ([id id-l])
+                                           (if (syntax-original? (syntax-local-introduce id))
+                                               id
+                                               (let loop
+                                                 ([btv (generate-temporary id)])
+                                                 (if (set-member? uniq-table (syntax->datum btv))
+                                                     (loop (generate-temporary btv))
+                                                     (begin
+                                                       (dict-set! bind-table id btv)
+                                                       (set-add! uniq-table (syntax->datum btv))
+                                                       btv))))))]
+                                      [iter-f
+                                       (lambda (parse-node stx-l)
+                                         (with-syntax
+                                             ([(seq ...) (stx-map parse-node stx-l)])
+                                           #'(seq ...)))])
+                                   ((walk-decls leaf-f decl-f iter-f) expanded)))]) ; walk again to replace all the introduced ids
                          (emit-local-step expanded expanded-safe #:id #'walk-expr-safe-ids)
                          (make-cpp-tu expanded-safe))) 
                      contents)]
