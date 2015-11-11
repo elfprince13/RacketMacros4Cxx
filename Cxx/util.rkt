@@ -108,6 +108,21 @@
  (lambda (stx)
    (symbol->string (syntax->datum stx))))
 
+(define-values
+  (init-clock tick)
+  (let
+      ([time 0])
+    (values
+     (lambda ()
+       (set! time (current-inexact-milliseconds))
+       " 0")
+     (lambda ()
+       (let ([pv-time time]
+             [now (current-inexact-milliseconds)])
+         (set! time now)
+         (string-append " " (~r (- now pv-time) #:precision 2)))))))
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Some reusable handlers for various expansion events
@@ -160,3 +175,9 @@
                    (eq-case exp)
                    (paren-case init-exp))))])))
 
+(define macroize-skel-kind
+  (lambda (skel-kind)
+    (format-id
+     skel-kind 
+     "@~a" 
+     (syntax-e skel-kind) #:source skel-kind #:props skel-kind)))
