@@ -437,7 +437,7 @@
                          (set! top-level-defs new-defs)
                          (defun #'vdefun ctx top-level-defs))]
                       [vdefs:decls 
-                       (let-values ([(new-defs expanded-stx) (def #'vdefs ctx top-level-defs)])
+                       (let-values ([(new-defs expanded-stx) (def #'vdefs ctx (syntax-local-make-definition-context top-level-defs))])
                          (set! top-level-defs new-defs)
                          expanded-stx)]))
                   (set! top-level-defs (syntax-local-make-definition-context top-level-defs))
