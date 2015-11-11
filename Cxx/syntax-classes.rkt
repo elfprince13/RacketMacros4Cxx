@@ -1,14 +1,24 @@
 #lang racket
-(require syntax/parse)
+(require syntax/parse
+         (for-syntax syntax/parse))
 
 (provide (all-defined-out))
 
-
+;;;;;;;;;;;;;;;;;;;;;;
+; Util
+;;;;;;;;;;;;;;;;;;;;;;
+(define-syntax ~bdatum
+  (pattern-expander
+   (lambda (stx)
+     (syntax-case stx ()
+       [(~bdatum id)
+        #'(~and id (~datum id))]
+       [(~bdatum bid id)
+        #'(~and bid (~datum id))]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;
 ; Types
 ;;;;;;;;;;;;;;;;;;;;;;
-
 (define-syntax-class record-kind-kw
   (pattern (~datum class))
   (pattern (~datum struct))
@@ -37,7 +47,6 @@
   (pattern (term ...+ (~bind [terms #'(term ...)])))
   (pattern atom))
 
-
 ;;;;;;;;;;;;;;;;;;;;;;
 ; Skeleton arguments
 ;;;;;;;;;;;;;;;;;;;;;;
@@ -59,7 +68,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;
 ; Statements
 ;;;;;;;;;;;;;;;;;;;;;;
-
 (define-syntax-class cxx-empty
   (pattern ()))
 (define-syntax-class cxx-decls
@@ -92,7 +100,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;
 ; Declaration stuff
 ;;;;;;;;;;;;;;;;;;;;;;
-
 (define-splicing-syntax-class c-attribute
   (pattern (~seq (~datum __attribute__) ((attr-exp:expr)) )))
 
@@ -119,9 +126,9 @@
 
 ; we should set a fail-when on arg
 (define-syntax-class fun-decl
-  (pattern ((~datum defun) (storage ...) (~var ret-type cxx-type) (~var name id) (arg:var-decl ... kw-arg:var-decl ...) attr:c-attribute ...  (~var body cxx-block) 
+  (pattern ((~bdatum defun) (storage ...) (~var ret-type cxx-type) (~var name id) (arg:var-decl ... kw-arg:var-decl ...) attr:c-attribute ...  (~var body cxx-block) 
              (~bind [storage-classes #'(storage ...)] [args #'(arg ...)] [kw-args #'(kw-arg ...)] [attributes #'(attr ...)])))
-  (pattern ((~datum defun) (storage ...) (~var ret-type cxx-type) (~var name id) (arg:var-decl ... kw-arg:var-decl ...) attr:c-attribute ... 
+  (pattern ((~bdatum defun) (storage ...) (~var ret-type cxx-type) (~var name id) (arg:var-decl ... kw-arg:var-decl ...) attr:c-attribute ... 
              (~bind [storage-classes #'(storage ...)] [args #'(arg ...)] [kw-args #'(kw-arg ...)] [attributes #'(attr ...)] [body #'()])))) ; forward declaration
 
 ;;;;;;;;;;;;;;;;;;;;;;
@@ -135,4 +142,4 @@
   (pattern item:fun-decl))
 
 (define-syntax-class tu-stx
-  (pattern ((~datum translation-unit) item:tu-item ... (~bind [items #'(item ...)]))))
+  (pattern ((~bdatum translation-unit) item:tu-item ... (~bind [items #'(item ...)]))))
