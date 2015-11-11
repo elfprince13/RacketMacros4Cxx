@@ -20,15 +20,15 @@
 ; Types
 ;;;;;;;;;;;;;;;;;;;;;;
 (define-syntax-class record-kind-kw
-  (pattern (~datum class))
-  (pattern (~datum struct))
-  (pattern (~datum __interface)) ;; hopefully shouldn't see this ever
-  (pattern (~datum union))
-  (pattern (~datum enum)))
+  (pattern (~bdatum class))
+  (pattern (~bdatum struct))
+  (pattern (~bdatum __interface)) ;; hopefully shouldn't see this ever
+  (pattern (~bdatum union))
+  (pattern (~bdatum enum)))
 
 (define-splicing-syntax-class cxx-type-placeholder
-  (pattern (~seq (~datum !) (~bind [placeholder-op #'()])))
-  (pattern (~seq placeholders-pref ... ((~datum !)) placeholders-suf ... (~bind [placeholder-op #'((placeholders-pref ...) . (placeholders-suf ...))]))))
+  (pattern (~seq (~bdatum !) (~bind [placeholder-op #'()])))
+  (pattern (~seq placeholders-pref ... ((~bdatum !)) placeholders-suf ... (~bind [placeholder-op #'((placeholders-pref ...) . (placeholders-suf ...))]))))
 
 (define-splicing-syntax-class cxx-type-simple
   (pattern (~seq type-terms ... (~peek (place:cxx-type-placeholder)) (~bind [pre-terms #'(type-terms ...)] [post-terms #'()] [placeholder-op #'()]))))
@@ -73,19 +73,19 @@
 (define-syntax-class cxx-decls
   (pattern decl:decls))
 (define-syntax-class cxx-block
-  (pattern ((~datum block) child ... (~bind [children #'(child ...)]))))
+  (pattern ((~bdatum block) child ... (~bind [children #'(child ...)]))))
 (define-syntax-class cxx-return
-  (pattern ((~datum return) (~bind [ret-val #'()])))
-  (pattern ((~datum return) ret-val:cxx-expr)))
+  (pattern ((~bdatum return) (~bind [ret-val #'()])))
+  (pattern ((~bdatum return) ret-val:cxx-expr)))
 (define-syntax-class cxx-for
-  (pattern ((~datum for) ((~or init:decls init:expr) cond:cxx-expr update:cxx-expr) child:cxx-stmt)))
+  (pattern ((~bdatum for) ((~or init:decls init:expr) cond:cxx-expr update:cxx-expr) child:cxx-stmt)))
 (define-syntax-class cxx-while
-  (pattern ((~datum while) cond:cxx-expr child:cxx-stmt)))
+  (pattern ((~bdatum while) cond:cxx-expr child:cxx-stmt)))
 (define-syntax-class cxx-if
-  (pattern ((~datum if) cond:cxx-expr child:cxx-stmt (~bind [else-clause #'()])))
-  (pattern ((~datum if) cond:cxx-expr child:cxx-stmt (~datum else) else-clause:cxx-stmt)))
+  (pattern ((~bdatum if) cond:cxx-expr child:cxx-stmt (~bind [else #'()] [else-clause #'()])))
+  (pattern ((~bdatum if) cond:cxx-expr child:cxx-stmt (~bdatum else) else-clause:cxx-stmt)))
 (define-syntax-class cxx-@
-  (pattern ((~datum @) kind:id (name:id) args:skeleton-args child:cxx-stmt)))
+  (pattern ((~bdatum @) kind:id (name:id) args:skeleton-args child:cxx-stmt)))
 
 (define-syntax-class cxx-stmt
   (pattern item:cxx-empty)
@@ -101,15 +101,15 @@
 ; Declaration stuff
 ;;;;;;;;;;;;;;;;;;;;;;
 (define-splicing-syntax-class c-attribute
-  (pattern (~seq (~datum __attribute__) ((attr-exp:expr)) )))
+  (pattern (~seq (~bdatum __attribute__) ((attr-exp:expr)) )))
 
 (define-splicing-syntax-class var-init
   (pattern (~seq (~var name id) (~bind [exp #'()])))
-  (pattern (~seq (~var name id) (~datum =) init-exp:expr ...+ (~bind [exp #'(= init-exp ...)])))
+  (pattern (~seq (~var name id) (~bdatum =) init-exp:expr ...+ (~bind [exp #'(= init-exp ...)])))
   (pattern (~seq (~var name id) ( init-exp:expr ...+) (~bind [exp #'((init-exp ...))]))))
 
 (define-syntax-class typedef-decl
-  (pattern ((~datum typedef) (qualifier ...) type-info:cxx-type (~var new-name id) (~bind [qualifiers #'(qualifier ...)]))))
+  (pattern ((~bdatum typedef) (qualifier ...) type-info:cxx-type (~var new-name id) (~bind [qualifiers #'(qualifier ...)]))))
 
 (define-syntax-class var-decl
   (pattern ((storage ...) type-info:cxx-type (~var init var-init) attr:c-attribute ... (~bind [storage-classes #'(storage ...)] [name #'init.name] [init-exp #'init.exp] [attributes #'(attr ...)]))))
@@ -119,10 +119,10 @@
   (pattern ((qualifier ...) kind:record-kind-kw name:id attr:c-attribute ... (~bind [qualifiers #'(qualifier ...)] [attributes #'(attr ...)] [decls #'()])))) ; forward declaration
 
 (define-syntax-class decls
-  (pattern ((~datum def) (~var var var-decl) (extra-type:cxx-type extra-var:var-init) ... (~bind [extra-vars #'(extra-var ...)] [extra-type-infos #'(extra-type ...)]))))
+  (pattern ((~bdatum def) (~var var var-decl) (extra-type:cxx-type extra-var:var-init) ... (~bind [extra-vars #'(extra-var ...)] [extra-type-infos #'(extra-type ...)]))))
 
 (define-syntax-class inline-record-typedef
-  (pattern ((~datum def) record:record-decl typedef:typedef-decl)))
+  (pattern ((~bdatum def) record:record-decl typedef:typedef-decl)))
 
 ; we should set a fail-when on arg
 (define-syntax-class fun-decl

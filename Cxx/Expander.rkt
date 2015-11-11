@@ -210,7 +210,7 @@
                 [update (handle-expr #'stmt.update context defs)]
                 [child (local-expand #'stmt.child context #f defs)])
              (no-expand 
-              #'(for (init cond update) child))))]))))
+              #'(stmt.for (init cond update) child))))]))))
 
 (define-syntax return
   (lambda (stx)
@@ -221,7 +221,7 @@
              (if (stx-null? #'stmt.ret-val) 
                  #'()
                  (handle-expr #'(stmt.ret-val)))])
-         (no-expand #'(return . ret-val)))])))
+         (no-expand #'(stmt.return . ret-val)))])))
 
 (define-syntax -if
   (lambda (stx)
@@ -234,7 +234,7 @@
              (if (stx-null? #'stmt.else-clause)
                  #'stmt.else-clause
                  (local-expand #'stmt.else-clause (generate-expand-context) #f))])
-         (no-expand (if (stx-null? #'else-clause) #'(if cond child) #'(if cond child else else-clause))))])))
+         (no-expand (if (stx-null? #'else-clause) #'(stmt.if cond child) #'(stmt.if cond child stmt.else else-clause))))])))
 
 (define-syntax block
   (let ([nest 0])
@@ -270,7 +270,7 @@
                                  defs)])])
                          (cons head (loop rest defs ctx))))))])
            (set! nest (- nest 1))
-           (no-expand #'(block stmts ...)))]))))
+           (no-expand #'(stmt.block stmts ...)))]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ; Define definitions
@@ -391,7 +391,7 @@
                           #'((type ...) init ...)))
                       #'(extra-types ...)
                       #'(extra-vars ...))]) 
-                 #'(def var extras ...)))])
+                 #'(vars.def var extras ...)))])
          (values 
           defs 
           def-stx))])))
