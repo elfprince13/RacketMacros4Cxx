@@ -22,21 +22,22 @@
 
 (provide (all-defined-out))
 
-(define simple-external-params-table
-  (hash 
-   '(Loop1d (test_loop)) (list 
-                          (list #'(blockIdx . x)) (list #'((/ (threadIdx . x) 32))) (list #'((& (threadIdx . x) 31))) (list #'k) (list #'j) 
-                          (list #'(gridDim . x)) (list #'((/ (blockDim . x) 32))) (list #'32) (list #'1) (list #'4)) 
-   '(I ()) '()
-   '(N ()) '()))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ; Skeleton handler
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
+(define-for-syntax simple-external-params-table
+  (hash 
+   '(Loop1d (test_loop)) 
+   (list 
+    (list #'(blockIdx . x)) (list #'((/ (threadIdx . x) 32))) (list #'((& (threadIdx . x) 31))) (list #'k) (list #'j) 
+    (list #'(gridDim . x)) (list #'((/ (blockDim . x) 32))) (list #'32) (list #'1) (list #'4)) 
+   '(I ()) '()
+   '(N ()) '()))
+
 (define-for-syntax InitSkelTable 
   (hash 'Loop1d 
-        (dynamic-require (string->path "/Users/thomas/Documents/Brown/Proteins/racket-tests/Loop1d.rkt") 'Loop1d)))
+        ((dynamic-require (string->path "/Users/thomas/Documents/Brown/Proteins/racket-tests/Loop1d.rkt") 'Loop1d) simple-external-params-table)))
 
 (define-for-syntax InitSkelIds
   (make-hash))
