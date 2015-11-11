@@ -81,7 +81,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define walk-expr-safe-ids
-  (lambda (bind-table)
+  (lambda (bind-table uniq-table)
     (letrec 
         ([safe-print-id 
           (lambda (stx)
@@ -90,15 +90,15 @@
                 stx))]
          [walk-expr 
           (lambda (stx)
-            (syntax-case stx () ; bizarre interaction with syntax-case and lambda: can't have lambda as a keyword argument, or the syntax-case breaks
-              [(let* ((arg expr)) bodies ...)
+            (syntax-parse stx
+              #;[decl:cxx-decls
                (begin
-                 (if (syntax-source #'arg)
+                 (if (syntax-original? #'arg)
                      (void)
                      (let ([btv (generate-temporary #'arg)])
                        (dict-set! bind-table #'arg btv)))
                  
-                 (with-syntax 
+                 #;(with-syntax 
                      ([arg 
                        (safe-print-id #'arg)]
                       [expr
@@ -109,11 +109,10 @@
                           (walk-expr stx)) #'(bodies ...))])
                    #'(let* ((arg expr)) bodies ...)))]
               [(seq ...)
-               (begin
-                 (stx-map walk-expr #'(seq ...)))]
-              [atom 
-               (begin
-                 (safe-print-id #'atom))]))]) 
+               (with-syntax
+                 ([(seq ...) (stx-map walk-expr #'(seq ...))])
+                 #'(seq ...))]
+              [atom (safe-print-id #'atom)]))]) 
       walk-expr)))
 
 (define string-from-stx 

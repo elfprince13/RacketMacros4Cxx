@@ -83,11 +83,11 @@
        (call puts (* ((+ argv i))))))
     (@ Loop1d (test_loop) ([@ I] [= 0] [= argc])
        (block
-        (def (() (int (!)) i))
-        (@ I (test_iterator) ([= i]) ())
-        (if (> (call strlen (* ((+ argv i)))) 0)
-            (>++ ((* ((+ argv i))))))
-        (call puts (* ((+ argv i))))))
+        (def (() (int (!)) j))
+        (@ I (test_iterator) ([= j]) ())
+        (if (> (call strlen (* ((+ argv j)))) 0)
+            (>++ ((* ((+ argv j))))))
+        (call puts (* ((+ argv j))))))
     
     (return 0))))
 

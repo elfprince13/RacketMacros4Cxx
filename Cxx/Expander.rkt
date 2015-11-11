@@ -5,6 +5,7 @@
    macro-debugger/emit
    racket/format
    racket/dict
+   racket/set
    racket/syntax
    syntax/context
    syntax/id-table
@@ -123,7 +124,6 @@
            #'(define-syntax op
                (lambda (stx)
                  (syntax-parse stx
-                     #:literals (op)
                      [(op (~between term:cxx-expr min-count max-count) (... ...))
                       ;#''(term (... ...))
                       (with-syntax
@@ -271,19 +271,6 @@
            (set! nest (- nest 1))
            (no-expand #'(block stmts ...)))]))))
 
-#;(((
-     [(expr ...) 
-      (begin
-        #;(print "no match for ") 
-        #;(newline)
-        #;(print stmt)
-        #;(newline)
-        (let ((expr-components 
-               (map (curryr expand-stmt skels) (syntax->list #'(expr ...)))))
-          (datum->syntax stmt expr-components)))]
-     [any #'any]))) 
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ; Define definitions
 ;;;;;;;;;;;;;;;;;;;;;;;;
@@ -362,7 +349,7 @@
                    [((attribute-term ...) ...) ; This is a splicing class so jam all the terms together
                     #'func.attributes])
                 ;(display "putting the defun back together") (display (tick)) (newline)
-                #'(defun func.storage-classes func.ret-type f-name (arg ... kw-arg ...) attribute-term ... ... body)))))])))
+                #'(func.defun func.storage-classes func.ret-type f-name (arg ... kw-arg ...) attribute-term ... ... body)))))])))
 
 (define-for-syntax def
   (lambda (stx ctx defs)
@@ -427,7 +414,7 @@
               ([(skel-defs ...) 
                 (map
                  (lambda (skel-id)
-                   (local-transformer-expand (hash-ref InitSkelTable (syntax->datum skel-id)) 'expression null)) skel-ids)])
+                   (hash-ref InitSkelTable (syntax->datum skel-id))) skel-ids)])
             #'(values skel-defs ...))
           top-level-defs)
          (internal-definition-context-seal top-level-defs)
@@ -456,7 +443,7 @@
                   (set! top-level-defs (syntax-local-make-definition-context top-level-defs))
                   out-form)
                 #'unit.items)])
-           (no-expand #'(translation-unit declaration ...))))])))
+           (no-expand #'(unit.translation-unit declaration ...))))])))
 
 (define-for-syntax display-inert-body
   (lambda (tag contents) 
@@ -465,10 +452,9 @@
                     (stx-map 
                      (lambda (stx)
                        (let* ([expanded (local-expand stx 'top-level #f)]
-                              #;[expanded ((walk-expr-safe-ids (make-bound-id-table)) expanded)])
-                         ;(display expanded) (newline)
-                         
-                         (make-cpp-tu expanded))) 
+                              [expanded-safe ((walk-expr-safe-ids (make-bound-id-table) (mutable-set)) expanded)])
+                         (emit-local-step expanded expanded-safe #:id #'walk-expr-safe-ids)
+                         (make-cpp-tu expanded-safe))) 
                      contents)]
                    [unpacked #'(let () (map display 'contents) (void))]) 
       (if tag 
