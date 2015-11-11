@@ -59,7 +59,7 @@
           (syntax-parse arg
             [decl:var-decl 
              #'decl.name])) 
-        #'(args ...) )])))
+        #'(args ...))])))
 
 (define parse-def-names
   (lambda (stx) 
@@ -74,7 +74,8 @@
          #'vars.var
          (syntax->list #'vars.extra-vars)))])))
 
-#;(parse-arg-names #'((() int a (5)) (() float b = 6.0) (() char c)))
+;(parse-arg-names #'((() (unsigned long (!)) size)))
+;(parse-def-names #'(def (() (int (!)) t1 = 0) ((* (!)) t2 = (& t1))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Random selection of other helpers.
@@ -88,32 +89,54 @@
             (if (identifier? stx)
                 (dict-ref bind-table stx stx)
                 stx))]
-         [walk-expr 
+         [ensure-unique
+          (lambda (id-l)
+            ;(emit-remark "outside loop:" (car id-l) (~a (syntax-original? (car id-l))))
+            (for ([id id-l])
+              ;(emit-remark "inside loop:" id (~a (syntax-original? id) (syntax-property id 'original?)))
+              (let
+                ([safe-id 
+                  (if (syntax-original? (syntax-local-introduce id))
+                      #;(let ()
+                        (display "original: ") (display id) (newline)
+                        id)
+                      id
+                      (let loop
+                        ([btv (generate-temporary id)])
+                        ;(display "not original: ") (display id) (display btv) (newline)
+                        (if (set-member? uniq-table btv)
+                            (loop)
+                            (begin
+                              (dict-set! bind-table id btv)
+                              btv))))])
+                (set-add! uniq-table safe-id))))]
+         [walk-tree
+          (lambda (stx-l)
+            ;(display "walking ") (display stx-l) (newline)
+            (with-syntax
+                 ([(seq ...) (stx-map parse-node stx-l)])
+                 #'(seq ...)))]
+         [parse-node 
           (lambda (stx)
+            ;(display "parsing ") (display stx) (newline) 
             (syntax-parse stx
-              #;[decl:cxx-decls
-               (begin
-                 (if (syntax-original? #'arg)
-                     (void)
-                     (let ([btv (generate-temporary #'arg)])
-                       (dict-set! bind-table #'arg btv)))
-                 
-                 #;(with-syntax 
-                     ([arg 
-                       (safe-print-id #'arg)]
-                      [expr
-                       (walk-expr #'expr)]
-                      [(bodies ...) 
-                       (stx-map
-                        (lambda (stx)
-                          (walk-expr stx)) #'(bodies ...))])
-                   #'(let* ((arg expr)) bodies ...)))]
+              [func:fun-decl
+               ;(emit-local-step (stx-car #'func.args) (car (parse-arg-names #'func.args)) #:id #'parse-node-func)
+               ;(emit-remark "The local step shown can be used to test if original is preserved by parse-arg-names")
+               (ensure-unique (parse-arg-names #'func.args))
+               (walk-tree stx)]
+              [decl:cxx-decls
+               (ensure-unique (parse-def-names stx))
+               (walk-tree stx)]
               [(seq ...)
-               (with-syntax
-                 ([(seq ...) (stx-map walk-expr #'(seq ...))])
-                 #'(seq ...))]
-              [atom (safe-print-id #'atom)]))]) 
-      walk-expr)))
+               ;(display "seq ...") (newline)
+               (let ([walked-tree (walk-tree stx)])
+                 ;(emit-local-step stx walked-tree #:id #'parse-node-seq)
+                 walked-tree)]
+              [atom 
+               ;(display "atom") (newline)
+               (safe-print-id stx)]))]) 
+      parse-node)))
 
 (define string-from-stx 
  (lambda (stx)

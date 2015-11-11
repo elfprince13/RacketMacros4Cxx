@@ -97,6 +97,11 @@
 ;;;;;;;;;;;;;;;;;;;;;
 
 #;(translation-unit
+ (defun (extern ) (void * (!)) malloc ((() (unsigned long (!)) size)))
+ #;(def (() (int (!)) i))
+ #;(def (() (int (!)) j = i)))
+
+#;(translation-unit
 
  (defun (extern ) (void * (!)) malloc ((() (unsigned long (!)) size)))
  (defun (extern ) (void (!)) free ((() (void * (!)) data)))
