@@ -43,7 +43,7 @@
 
 (translation-unit
  (skeletons:
-  (Loop1d "./Loop1d.rkt")
+  (Loop1d "./SkelImpls/Loop1d.rkt")
   "./test-params.json")
  (defun (extern ) (void * (!)) malloc ((() (unsigned long (!)) size)))
  (defun (extern ) (void (!)) free ((() (void * (!)) data)))
@@ -57,14 +57,14 @@
          (@ Loop1d (test_loop) ([@ I] [= 0] [= argc])
             (block
              (def (() (int (!)) j1))
-             (@ I (test_iterator) ([= j1]) ())
-             (if (> (call strlen (* ((+ argv j1)))) 0)
-                 (>++ ((* ((+ argv j1))))))
-             (call puts (* ((+ argv j))))
              (@ Loop1d (test_loop) ([@ J] [= 0] [= argc])
                 (block
                  (def (() (int (!)) j))
                  (@ J (test_iterator) ([= j]) ())
+                 (@ I (test_iterator) ([= j1]) ())
+                 (if (> (call strlen (* ((+ argv j1)))) 0)
+                     (>++ ((* ((+ argv j1))))))
+                 (call puts (* ((+ argv j1))))
                  (if (> (call strlen (* ((+ argv j)))) 0)
                      (>++ ((* ((+ argv j))))))
                  (call puts (* ((+ argv j))))))))
@@ -78,7 +78,7 @@
 
 (translation-unit
  (skeletons:
-  (Loop1d "./Loop1d.rkt")
+  (Loop1d "./SkelImpls/Loop1d.rkt")
   "./test-params.json")
  (defun (extern ) (void * (!)) malloc ((() (unsigned long (!)) size)))
  (defun (extern ) (void (!)) free ((() (void * (!)) data)))
