@@ -42,6 +42,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (translation-unit
+ (skeletons:
+  (Loop1d "./Loop1d.rkt")
+  "./test-params.json")
  (defun (extern ) (void * (!)) malloc ((() (unsigned long (!)) size)))
  (defun (extern ) (void (!)) free ((() (void * (!)) data)))
  (defun (extern ) (int (!)) puts ((() (const char * (!)) str)))
@@ -74,6 +77,9 @@
     (return ret))))
 
 (translation-unit
+ (skeletons:
+  (Loop1d "./Loop1d.rkt")
+  "./test-params.json")
  (defun (extern ) (void * (!)) malloc ((() (unsigned long (!)) size)))
  (defun (extern ) (void (!)) free ((() (void * (!)) data)))
  (defun (extern ) (int (!)) puts ((() (const char * (!)) str)))

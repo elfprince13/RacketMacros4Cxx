@@ -25,20 +25,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ; Skeleton handler
 ;;;;;;;;;;;;;;;;;;;;;;;;
-
-(define-for-syntax simple-external-params-table
-  (hash 
-   '(Loop1d (test_loop)) 
-   (list 
-    (list #'(blockIdx . x)) (list #'((/ (threadIdx . x) 32))) (list #'((& (threadIdx . x) 31))) (list #'k) (list #'j) 
-    (list #'(gridDim . x)) (list #'((/ (blockDim . x) 32))) (list #'32) (list #'1) (list #'4)) 
-   '(I ()) '()
-   '(N ()) '()))
-
-(define-for-syntax InitSkelTable 
-  (hash 'Loop1d 
-        ((dynamic-require (string->path "/Users/thomas/Documents/Brown/Proteins/racket-tests/Loop1d.rkt") 'Loop1d) simple-external-params-table)))
-
 (define-for-syntax InitSkelIds
   (make-hash))
 
@@ -61,25 +47,32 @@
 (define-syntax translation-unit
   (lambda (stx)
     ;(display "starting up") (display (init-clock)) (newline)
+    (set! InitSkelIds (make-hash)) ; Clean slate, if for some reason we get multiple TUs in a row (e.g. our demo)
     (syntax-parse stx
       [unit:tu-stx
        (let ([top-level-defs (syntax-local-make-definition-context)]
              [ctx (generate-expand-context)]
-             [skel-ids (list #'Loop1d)])
+             [skel-ids (syntax->list #'unit.skelIds)]
+             [skel-paths (syntax->list #'unit.skelPaths)]
+             [params-table 
+              (if (attribute unit.configPath)
+                  (jsonpath-to-table (string->path (syntax->datum #'unit.configPath)))
+                  #hasheq())])
          ;(display "have a parse") (display (tick)) (newline)
          (syntax-local-bind-syntaxes 
           (map macroize-skel-kind skel-ids)
           (with-syntax
               ([(skel-defs ...) 
                 (map
-                 (lambda (skel-id)
-                   (hash-ref InitSkelTable (syntax->datum skel-id))) skel-ids)])
+                 (lambda (skel-id skel-path)
+                   ((dynamic-require (string->path (syntax->datum skel-path)) (syntax->datum skel-id)) 
+                    params-table)) 
+                 skel-ids skel-paths)])
             #'(values skel-defs ...))
           top-level-defs)
          (internal-definition-context-seal top-level-defs)
-         (map 
-          (lambda (skel-id)
-            (hash-set! InitSkelIds (syntax->datum skel-id) (internal-definition-context-apply/loc top-level-defs (macroize-skel-kind skel-id)))) skel-ids)
+         (for ([skel-id skel-ids])
+            (hash-set! InitSkelIds (syntax->datum skel-id) (internal-definition-context-apply/loc top-level-defs (macroize-skel-kind skel-id))))
          ;(display "skeletons bound") (display (tick)) (newline)
          stx
          (with-syntax 

@@ -142,4 +142,9 @@
   (pattern item:fun-decl))
 
 (define-syntax-class tu-stx
-  (pattern ((~bdatum translation-unit) item:tu-item ... (~bind [items #'(item ...)]))))
+  (pattern ((~bdatum translation-unit) 
+            (~optional ((~bdatum skeletons:) (skelId:id skelPath:str) ... configPath:str)) 
+            item:tu-item ... 
+            (~bind [items #'(item ...)] 
+                   [skelIds (if (attribute skeletons:) #'(skelId ...) #'())] 
+                   [skelPaths (if (attribute skeletons:) #'(skelPath ...) #'())]))))

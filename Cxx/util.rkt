@@ -1,9 +1,7 @@
 #lang racket
-(require macro-debugger/emit
+(require json
          racket/format
-         racket/dict
          racket/syntax
-         (for-syntax racket/syntax)
          syntax/context
          syntax/id-table
          syntax/parse
@@ -107,6 +105,13 @@
 (define string-from-stx 
  (lambda (stx)
    (symbol->string (syntax->datum stx))))
+
+(define jsonpath-to-table
+  (lambda (path)
+    (let ([table (call-with-input-file path read-json)])
+      (if (eof-object? table)
+          (raise-user-error 'jsonpath-to-table (~a (list path "was not a json file, or could not be read")))
+          table))))
 
 (define-values
   (init-clock tick)
