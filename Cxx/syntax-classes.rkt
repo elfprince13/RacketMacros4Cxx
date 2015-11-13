@@ -55,7 +55,7 @@
 (define-syntax-class skel-expr-arg
   (pattern (= arg-expr:cxx-expr)))
 (define-syntax-class skel-stmt-arg
-  (pattern (@ arg-stmt:cxx-stmt)))
+  (pattern (arg-stmt:cxx-stmt)))
 
 (define-syntax-class skeleton-arg
   (pattern arg:skel-id-arg)
