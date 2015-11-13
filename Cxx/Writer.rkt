@@ -80,7 +80,8 @@
 
 (define make-cpp-stmt 
   (lambda (stmt) 
-    (syntax-parse stmt 
+    (syntax-parse stmt
+      [skel:cxx-@ (raise-user-error 'make-cpp-stmt (~a (list "Unexpanded skeleton: " #'skel)))]
       [for:cxx-for
        (string-append
         "for (" 

@@ -38,7 +38,9 @@
               InitSkelIds
               (syntax->datum #'skel.kind) ; If it's a top-level thingy, we shouldn't have any problem looking it up. 
               (lambda () (macroize-skel-kind #'skel.kind)))]) ; If not, we shouldn't have any problem with the marks
-         (local-expand #'(skel-macro (skel.name) skel.args skel.child) (generate-expand-context) #f))])))
+         (if (syntax-local-value #'skel-macro (thunk #f))
+             (local-expand #'(skel-macro (skel.name) skel.args skel.child) (generate-expand-context) #f)
+             (raise-user-error (syntax->datum #'skel-macro) "Not bound as a skeleton in this context")))])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ; Top-level definitions
