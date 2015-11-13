@@ -137,24 +137,11 @@
 
 (define-values (extract-id-arg extract-expr-arg extract-stmt-arg)
   (let 
-      (#;[compose-preds
-        (lambda (preds)
-          (lambda (args)
-            (apply (lambda (v1 v2) (and v1 v2))
-                   (map (curryr apply args) preds))))]
-       #;[car-is-literal
-        (lambda (lit) 
-          (lambda (arg-stx)
-            (eq? lit (syntax->datum (stx-car arg-stx)))))]
-       [make-extractor
-        (lambda (#;pred-f extract-f #;user-err-sym #;user-err-str)
+      ([make-extractor
+        (lambda (extract-f)
           (lambda (args pos)
             (let ([arg-stx (list-ref (syntax->list args) pos)])
-              (extract-f arg-stx)
-              #;(if (pred-f arg-stx)
-                  (extract-f arg-stx)
-                  (raise-user-error user-err-sym user-err-str)))))]
-       )
+              (extract-f arg-stx))))])
     (values 
      (make-extractor
       (syntax-parser [((~datum @) x:id) #'x]))

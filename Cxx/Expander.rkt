@@ -48,7 +48,6 @@
 
 (define-syntax translation-unit
   (lambda (stx)
-    ;(display "starting up") (display (init-clock)) (newline)
     (set! InitSkelIds (make-hash)) ; Clean slate, if for some reason we get multiple TUs in a row (e.g. our demo)
     (syntax-parse stx
       [unit:tu-stx
@@ -60,7 +59,6 @@
               (if (attribute unit.configPath)
                   (jsonpath-to-table (string->path (syntax->datum #'unit.configPath)))
                   #hasheq())])
-         ;(display "have a parse") (display (tick)) (newline)
          (syntax-local-bind-syntaxes 
           (map macroize-skel-kind skel-ids)
           (with-syntax
@@ -75,7 +73,6 @@
          (internal-definition-context-seal top-level-defs)
          (for ([skel-id skel-ids])
             (hash-set! InitSkelIds (syntax->datum skel-id) (internal-definition-context-apply/loc top-level-defs (macroize-skel-kind skel-id))))
-         ;(display "skeletons bound") (display (tick)) (newline)
          stx
          (with-syntax 
              ([(declaration ...)

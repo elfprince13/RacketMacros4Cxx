@@ -22,7 +22,7 @@
             [(name defs expr) 
              (handle-init 
               #'var.exp
-              (lambda ()
+              (thunk
                 (bind-and-seal defs (list name))
                 (values 
                  (internal-definition-context-apply/loc defs name) 
@@ -59,8 +59,6 @@
 
 (define defun
   (lambda (stx ctx defs)
-    ;(display stx) (newline)
-    ;(display "starting defun") (display (tick)) (newline)
     (syntax-parse stx
       [func:fun-decl 
        (let ([defs (syntax-local-make-definition-context defs)]
@@ -86,7 +84,6 @@
                      (contextualize-args kw-args defs))]
                    [((attribute-term ...) ...) ; This is a splicing class so jam all the terms together
                     #'func.attributes])
-                ;(display "putting the defun back together") (display (tick)) (newline)
                 #'(func.defun func.storage-classes func.ret-type f-name (arg ... kw-arg ...) attribute-term ... ... body)))))])))
 
 (define def
@@ -109,9 +106,7 @@
                                      ([(new-defs new-init) (init-var-to-context #'decl.init ctx defs)])
                                    (values 
                                     new-defs 
-                                    #`(decl.storage-classes decl.type-info #,@new-init #,@#'decl.attributes)))]
-                                ; This shouldn't happen in a (def ...)
-                                #;[(init:var-init) (init-var-to-context #'init ctx defs)])])
+                                    #`(decl.storage-classes decl.type-info #,@new-init #,@#'decl.attributes)))])])
                           (set! defs new-defs)
                           new-stx))
                       (cons
