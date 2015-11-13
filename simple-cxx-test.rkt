@@ -43,6 +43,20 @@
 
 (translation-unit
  (skeletons:
+  (Repeat "./SkelImpls/LexicalUnroll.rkt")
+  "./test-params.json")
+ (defun () (void (!)) reduce_warp (((volatile) (int * (!)) sdata) (() (int (!)) tid))  __attribute__((__device__))
+   (block 
+    (def (() (int (!)) selm = (+ sdata tid)))
+    (@ Repeat (reduce_warp) ([@ I] [= 6])
+       (block
+        (def (() (int (!)) i))
+        (@ I (reduce_idx) ([= i]) ())
+        (= i (<< 1 ((- 5 i))))
+        (= (* selm) (* ((+ selm i)))))))))
+
+(translation-unit
+ (skeletons:
   (Loop1d "./SkelImpls/Loop1d.rkt")
   "./test-params.json")
  (defun (extern ) (void * (!)) malloc ((() (unsigned long (!)) size)))
