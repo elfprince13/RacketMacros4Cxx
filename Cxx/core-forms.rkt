@@ -34,27 +34,55 @@
            #'(define-syntax op
                (lambda (stx)
                  (syntax-parse stx
-                     [(op (~between term:cxx-expr min-count max-count) (... ...))
+                     [((~bdatum opn op) (~between term:cxx-expr min-count max-count) (... ...))
                       ;#''(term (... ...))
                       (with-syntax
                           ([(term (... ...)) (handle-expr-list #'(term (... ...)))])
-                          (no-expand #'(op term (... ...))))])))))])))
+                          (no-expand #'(opn term (... ...))))])))))])))
 
+; Assignment operators
 (make-n-op = 2)
+(make-n-op += 2)
+(make-n-op -= 2)
+(make-n-op *= 2)
+(make-n-op /= 2)
+(make-n-op %= 2)
+(make-n-op &= 2)
+(make-n-op \|= 2)
+(make-n-op ^= 2)
+(make-n-op <<= 2)
+(make-n-op >>= 2)
+
+; Comparison operators
+(make-n-op != 2)
 (make-n-op == 2)
 (make-n-op >= 2)
 (make-n-op <= 2)
 (make-n-op > 2)
 (make-n-op < 2)
-(make-n-op + 2)
-(make-n-op - 2)
+
+; Arithmetic, pointers, boolean
+(make-n-op + 1 2)
+(make-n-op - 1 2)
+(make-n-op % 2)
 (make-n-op / 2)
 (make-n-op * 1 2)
-(make-n-op & 1 2)
 (make-n-op && 2)
+(make-n-op \|\| 2)
+(make-n-op ! 1)
+
+; bits, pointers
+(make-n-op & 1 2)
+(make-n-op \| 2)
+(make-n-op ~ 1)
 (make-n-op ^ 2)
+(make-n-op << 2)
+(make-n-op >> 2)
+
+; conditional
 (make-n-op ?: 3)
 
+; increment/decrement
 (make-n-op >-- 1)
 (make-n-op >++ 1)
 (make-n-op --< 1)
