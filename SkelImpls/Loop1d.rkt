@@ -19,10 +19,10 @@
              ([defs (syntax-local-make-definition-context)]
               [ctx (generate-expand-context)]
               [itr-id #'j]
-              [itr-init (stx-cdr (stx-car (stx-cdr #'args)))]
-              [itr-final (stx-cdr (stx-car (stx-cdr (stx-cdr #'args))))]
-              [itr-skel-kind (stx-car (stx-cdr (stx-car #'args)))]
-              [itr-macro (macroize-skel-kind itr-skel-kind)])
+              [itr-skel-kind (extract-id-arg #'args 0)]
+              [itr-macro (macroize-skel-kind itr-skel-kind)]
+              [itr-init (extract-expr-arg #'args 1)]
+              [itr-final (extract-expr-arg #'args 2)])
            (syntax-local-bind-syntaxes
             (list itr-macro)
             (local-transformer-expand 
@@ -32,7 +32,7 @@
                      [(_ (name:id) inner-args:skeleton-args child:cxx-stmt)
                       (with-syntax 
                           ([itr-id (syntax-local-introduce #'itr-id)]
-                           [local-id (stx-car (stx-cdr (stx-car #'inner-args)))])
+                           [local-id (extract-expr-arg #'inner-args 0)])
                         #'(= local-id itr-id))])))
              'expression null) 
             defs)
@@ -44,6 +44,6 @@
                 [child #'child])
              #;(cuda-loop1d #'child)
              (local-expand 
-              #'(for ((def (() (int (!)) itr-id = itr-init)) (< itr-id itr-final) (++< itr-id)) 
+              #'(for ((def (() (int (!)) itr-id = (itr-init))) (< itr-id (itr-final)) (++< itr-id)) 
                   child) 
               ctx #f defs)))]))))

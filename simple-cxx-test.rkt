@@ -54,7 +54,7 @@
     (def (() (int (!)) ret))
     (if (== ((% argc 4)) 0) 
         (block
-         (@ Loop1d (test_loop) ([@ I] [= 0] [= argc])
+         (@ Loop1d (test_loop) ([@ I] [= (+ 0 0)] [= (+ 0 argc)])
             (block
              (def (() (int (!)) j1))
              (@ Loop1d (test_loop) ([@ J] [= 0] [= argc])
