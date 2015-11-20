@@ -8,126 +8,122 @@
 (provide (all-defined-out))
 
 (define make-cpp-expr 
-  (lambda (expr) 
-    (syntax-parse expr
-      [((~and unop
+  (syntax-parser
+    [((~and unop
             (~or 
              (~datum >++)
              (~datum >--)
              (~datum ++<)
              (~datum --<))) arg)
-       (let
-           ([op-str (make-cpp-expr #'unop)]
-            [arg-str (make-cpp-expr #'arg)])
-         (if (char=? (string-ref op-str 0) #\>)
-             (string-append arg-str " " (substring op-str 1 3))
-             (string-append (substring op-str 0 2)  " "  arg-str)))]
-      [((~datum call) callee args ...) 
-       (string-append (make-cpp-expr #'callee) "("
-                      (string-join 
-                       (map make-cpp-expr (syntax->list #'(args ...))) ", ")
-                      ")")]
-      [((~datum c-cast) cast-type:cxx-type cast-expr) 
-       (string-append 
-        (synth-type-text #'cast-type "") (make-cpp-expr #'cast-expr))]
-      [((paren-expr ...)) 
-       (begin
-         ;(display "this is a paren-expr: ") (display expr) (newline)
-         ; Need to figure out how to preserve []
-         #;(when (not (eq? (syntax-property expr 'paren-shape) #\())
-             (begin (display expr) (newline) (syntax-property expr 'paren-shape) (newline)))
+     (let
+         ([op-str (make-cpp-expr #'unop)]
+          [arg-str (make-cpp-expr #'arg)])
+       (if (char=? (string-ref op-str 0) #\>)
+           (string-append arg-str " " (substring op-str 1 3))
+           (string-append (substring op-str 0 2)  " "  arg-str)))]
+    [((~datum call) callee args ...) 
+     (string-append (make-cpp-expr #'callee) "("
+                    (string-join 
+                     (map make-cpp-expr (syntax->list #'(args ...))) ", ")
+                    ")")]
+    [((~datum c-cast) cast-type:cxx-type cast-expr) 
+     (string-append 
+      (synth-type-text #'cast-type "") (make-cpp-expr #'cast-expr))]
+    [((paren-expr ...)) 
+     (begin
+       ;(display "this is a paren-expr: ") (display expr) (newline)
+       ; Need to figure out how to preserve []
+       #;(when (not (eq? (syntax-property expr 'paren-shape) #\())
+           (begin (display expr) (newline) (syntax-property expr 'paren-shape) (newline)))
        (string-append "(" (make-cpp-expr #'(paren-expr ...)) ")"))]
-      [(operator arg1 arg2)
-       (string-append (make-cpp-expr #'arg1) " " (make-cpp-expr #'operator) " " (make-cpp-expr #'arg2))]
-      [(operator arg1)
-       (string-append (make-cpp-expr #'operator) " " (make-cpp-expr #'arg1))]
-      [() ""]
-      [(name-or-literal) 
-       (make-cpp-expr #'name-or-literal)]
-      [(struct . member) 
-       (string-append "(" (make-cpp-expr #'struct) "." (make-cpp-expr #'member) ")")]
-      [name-or-literal 
-       (let ((name-or-literal (syntax->datum #'name-or-literal)))
-         (cond [(symbol? name-or-literal)
-                (symbol->string name-or-literal)]
-               [(number? name-or-literal)
-                (number->string name-or-literal)]
-               [(string? name-or-literal)
-                (string-append "\"" name-or-literal "\"")]
-               [(char? name-or-literal)
-                (string-append 
-                 "'"
-                 (let ([hex-v 
-                        (lambda (n)
-                          (~a (number->string (char->integer name-or-literal) 16)
-                              #:width n
-                              #:align 'right
-                              #:pad-string "0"))])
-                   (cond
-                     [(and (char<=? name-or-literal #\uff) (char-alphabetic? name-or-literal) (char-numeric? name-or-literal) (char-punctuation? name-or-literal))
-                      (~a name-or-literal)]
-                     [(char<=? name-or-literal #\uff)
-                      (string-append 
-                       "\\x" (hex-v 2))]
-                     [(char<=? name-or-literal #\uffff)
-                      (string-append 
-                       "\\u" (hex-v 4))]
-                     [else 
-                      (string-append 
-                       "\\U" (hex-v 8))]))
-                 "'")]
-               [else (raise-argument-error 'name-or-literal "expected name, number, character, or string" name-or-literal)]))])))
+    [(operator arg1 arg2)
+     (string-append (make-cpp-expr #'arg1) " " (make-cpp-expr #'operator) " " (make-cpp-expr #'arg2))]
+    [(operator arg1)
+     (string-append (make-cpp-expr #'operator) " " (make-cpp-expr #'arg1))]
+    [() ""]
+    [(name-or-literal) 
+     (make-cpp-expr #'name-or-literal)]
+    [(struct . member) 
+     (string-append "(" (make-cpp-expr #'struct) "." (make-cpp-expr #'member) ")")]
+    [name-or-literal 
+     (let ((name-or-literal (syntax->datum #'name-or-literal)))
+       (cond [(symbol? name-or-literal)
+              (symbol->string name-or-literal)]
+             [(number? name-or-literal)
+              (number->string name-or-literal)]
+             [(string? name-or-literal)
+              (string-append "\"" name-or-literal "\"")]
+             [(char? name-or-literal)
+              (string-append 
+               "'"
+               (let ([hex-v 
+                      (lambda (n)
+                        (~a (number->string (char->integer name-or-literal) 16)
+                            #:width n
+                            #:align 'right
+                            #:pad-string "0"))])
+                 (cond
+                   [(and (char<=? name-or-literal #\uff) (char-alphabetic? name-or-literal) (char-numeric? name-or-literal) (char-punctuation? name-or-literal))
+                    (~a name-or-literal)]
+                   [(char<=? name-or-literal #\uff)
+                    (string-append 
+                     "\\x" (hex-v 2))]
+                   [(char<=? name-or-literal #\uffff)
+                    (string-append 
+                     "\\u" (hex-v 4))]
+                   [else 
+                    (string-append 
+                     "\\U" (hex-v 8))]))
+               "'")]
+             [else (raise-argument-error 'name-or-literal "expected name, number, character, or string" name-or-literal)]))]))
 
 (define make-cpp-stmt 
-  (lambda (stmt) 
-    (syntax-parse stmt
-      [skel:cxx-@ (raise-user-error 'make-cpp-stmt (~a (list "Unexpanded skeleton: " #'skel)))]
-      [for:cxx-for
-       (string-append
-        "for (" 
-        (syntax-parse #'for.init
-          [init:decls (make-cpp-decl #'init #f)]
-          [(init:cxx-expr) (make-cpp-expr #'(init))]) 
-        ";" 
-        (make-cpp-expr #'for.cond) ";" (make-cpp-expr #'for.update) ")"
-        (make-cpp-stmt #'for.child))]
-      [while:cxx-while 
-       (string-append
-        "while (" (make-cpp-expr #'while.cond) ") " (make-cpp-stmt #'while.child))]
-      [if-stmt:cxx-if 
-       (string-append
-        "if (" (make-cpp-expr #'if-stmt.cond) ") " (make-cpp-stmt #'if-stmt.child) 
-        (if (stx-null? #'if-stmt.else-clause)
-            ""
-            (string-append " else " (make-cpp-stmt #'if-stmt.else-clause))))]
-      [block:cxx-block 
-       (string-append 
-        "{\n" (string-join (stx-map make-cpp-stmt #'block.children) "") "}\n")]
-      [decl:cxx-decls
-       (make-cpp-decl stmt)]
-      [skel:cxx-@
-       (raise-argument-error 'make-cpp-stmt "Received statement contained unexpanded skeleton: " stmt)]
-      [empty:cxx-empty ";\n"]
-      [expr:cxx-expr 
-       (string-append (make-cpp-expr stmt) ";\n")])))
+  (syntax-parser
+    [skel:cxx-@ (raise-user-error 'make-cpp-stmt (~a (list "Unexpanded skeleton: " #'skel)))]
+    [for:cxx-for
+     (string-append
+      "for (" 
+      (syntax-parse #'for.init
+        [init:decls (make-cpp-decl #'init #f)]
+        [(init:cxx-expr) (make-cpp-expr #'(init))]) 
+      ";" 
+      (make-cpp-expr #'for.cond) ";" (make-cpp-expr #'for.update) ")"
+      (make-cpp-stmt #'for.child))]
+    [while:cxx-while 
+     (string-append
+      "while (" (make-cpp-expr #'while.cond) ") " (make-cpp-stmt #'while.child))]
+    [if-stmt:cxx-if 
+     (string-append
+      "if (" (make-cpp-expr #'if-stmt.cond) ") " (make-cpp-stmt #'if-stmt.child) 
+      (if (stx-null? #'if-stmt.else-clause)
+          ""
+          (string-append " else " (make-cpp-stmt #'if-stmt.else-clause))))]
+    [block:cxx-block 
+     (string-append 
+      "{\n" (string-join (stx-map make-cpp-stmt #'block.children) "") "}\n")]
+    [decl:cxx-decls
+     (make-cpp-decl #'decl)]
+    [skel:cxx-@
+     (raise-argument-error 'make-cpp-stmt "Received statement contained unexpanded skeleton: " #'skel)]
+    [empty:cxx-empty ";\n"]
+    [expr:cxx-expr 
+     (string-append (make-cpp-expr #'expr) ";\n")]))
 
 (define make-cpp-init 
-  (lambda (stx)
-    (syntax-parse stx
-      [(init:var-init)
-       (handle-init 
-        #'init.exp 
-        (thunk "")
-        (lambda (eq-expr) (string-append " = " (make-cpp-expr (stx-car eq-expr))))
-        (lambda (paren-expr) (make-cpp-expr paren-expr)))])))
+  (syntax-parser
+    [(init:var-init)
+     (handle-init 
+      #'init.exp 
+      (thunk "")
+      (lambda (eq-expr) (string-append " = " (make-cpp-expr (stx-car eq-expr))))
+      (lambda (paren-expr) (make-cpp-expr paren-expr)))]))
 
 (define make-cpp-single-decl
-  (lambda (stx)
-    (syntax-parse stx
-      [var:var-decl 
-       (string-append
-        (make-storage-classes #'var.storage-classes)
-        (synth-type-text #'var.type-info (string-from-stx #'var.name)) (make-cpp-init #'var.init))])))
+  (syntax-parser
+    [var:var-decl 
+     (string-append
+      (make-storage-classes #'var.storage-classes)
+      (synth-type-text #'var.type-info (string-from-stx #'var.name)) (make-cpp-init #'var.init))]))
 
 (define make-storage-classes
   (lambda (storage-syntax [string-f string-from-stx])

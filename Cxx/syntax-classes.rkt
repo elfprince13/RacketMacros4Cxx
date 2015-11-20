@@ -87,6 +87,10 @@
 (define-syntax-class cxx-@
   (pattern ((~bdatum @) kind:id (name:id) args:skeleton-args child:cxx-stmt)))
 
+; We use this pattern internally, but should never appear in input-forms
+(define-syntax-class macro-@
+  (pattern (@kind:id (name:id) args:skeleton-args child:cxx-stmt)))
+
 (define-syntax-class cxx-stmt
   (pattern item:cxx-empty)
   (pattern item:cxx-decls)
