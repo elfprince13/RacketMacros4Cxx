@@ -1,6 +1,4 @@
 #lang Cxx
-; Idea: keep our own identifier dictionary when walking for Writer
-; and use Source Location information to check which identifiers are original and which are introduced
 ; Writer probably wants to use pretty print
 
 ;;;;;;;;;;;;;;;;;;

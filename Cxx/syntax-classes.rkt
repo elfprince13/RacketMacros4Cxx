@@ -135,6 +135,7 @@
 ; Some high-level stuff
 ;;;;;;;;;;;;;;;;;;;;;;
 (define-syntax-class tu-item
+  (pattern item:cxx-@)
   (pattern item:typedef-decl)
   (pattern item:record-decl)
   (pattern item:inline-record-typedef)

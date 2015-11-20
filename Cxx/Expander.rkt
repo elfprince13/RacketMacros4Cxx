@@ -11,7 +11,10 @@
    syntax/id-table
    syntax/parse
    ;syntax/parse/debug
-   syntax/stx))
+   syntax/stx
+   (for-syntax
+    racket
+    syntax/parse)))
 
 (require 
   (for-syntax
@@ -28,8 +31,8 @@
 (define-for-syntax InitSkelIds
   (make-hash))
 
-(define-syntax @
-  (lambda (stx)
+(define-for-syntax @-handler
+  (lambda (stx [in-defs #f])
     (syntax-parse stx 
       [skel:cxx-@
        (with-syntax
@@ -39,8 +42,14 @@
               (syntax->datum #'skel.kind) ; If it's a top-level thingy, we shouldn't have any problem looking it up. 
               (lambda () (macroize-skel-kind #'skel.kind)))]) ; If not, we shouldn't have any problem with the marks
          (if (syntax-local-value #'skel-macro (thunk #f))
-             (local-expand #'(skel-macro (skel.name) skel.args skel.child) (generate-expand-context) #f)
+             (let
+                 ([expandable #'(skel-macro (skel.name) skel.args skel.child)])
+               (if in-defs
+                   ((syntax-local-value #'skel-macro) expandable in-defs)
+                   (local-expand expandable (generate-expand-context) #f)))
              (raise-user-error (syntax->datum #'skel-macro) "Not bound as a skeleton in this context")))])))
+
+(define-syntax @ @-handler)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ; Top-level definitions
@@ -51,11 +60,19 @@
     (set! InitSkelIds (make-hash)) ; Clean slate, if for some reason we get multiple TUs in a row (e.g. our demo)
     (syntax-parse stx
       [unit:tu-stx
-       (let ([top-level-defs (syntax-local-make-definition-context)]
-             [ctx (generate-expand-context)]
-             [skel-ids (syntax->list #'unit.skelIds)]
-             [skel-paths (syntax->list #'unit.skelPaths)]
-             [params-table 
+       (letrec-syntaxes+values
+           ([(defer-l)
+             (syntax-parser
+               [(defer-l stx)
+                #'(thunk 
+                   (with-syntax ([v stx])
+                     #'(v)))])])
+           ([(top-level-defs) (syntax-local-make-definition-context)]
+            [(ctx) (generate-expand-context)]
+            [(skel-ids skel-paths) 
+             (apply values 
+                    (stx-map syntax->list #'(unit.skelIds unit.skelPaths)))]
+            [(params-table) 
               (if (attribute unit.configPath)
                   (jsonpath-to-table (string->path (syntax->datum #'unit.configPath)))
                   #hasheq())])
@@ -75,26 +92,32 @@
             (hash-set! InitSkelIds (syntax->datum skel-id) (internal-definition-context-apply/loc top-level-defs (macroize-skel-kind skel-id))))
          stx
          (with-syntax 
-             ([(declaration ...)
-               (stx-map 
-                (lambda (declaration)
-                  (define out-form 
-                    (syntax-parse declaration
-                      [record:record-decl #'record]
-                      [typedef:typedef-decl #'typedef]
-                      [vdefun:fun-decl 
-                       (let ([new-defs (syntax-local-make-definition-context top-level-defs)])
-                         (bind-and-seal new-defs (list #'vdefun.name))
-                         (set! top-level-defs new-defs)
-                         (defun #'vdefun ctx top-level-defs))]
-                      [vdefs:decls 
-                       (let-values ([(new-defs expanded-stx) (def #'vdefs ctx (syntax-local-make-definition-context top-level-defs))])
-                         (set! top-level-defs new-defs)
-                         expanded-stx)]))
-                  (set! top-level-defs (syntax-local-make-definition-context top-level-defs))
-                  out-form)
-                #'unit.items)])
-           (no-expand #'(unit.translation-unit declaration ...))))])))
+             ([((declaration ...) ...)
+               (map
+                (lambda (f) (f))
+                (stx-map 
+                 (lambda (declaration)
+                   (define out-form 
+                     (syntax-parse declaration
+                       [record:record-decl (defer-l #'record)]
+                       [typedef:typedef-decl (defer-l #'typedef)]
+                       [tls:cxx-@
+                        (let-values ([(deferred-syntax new-defs) (@-handler #'tls top-level-defs)])
+                          (set! top-level-defs new-defs)
+                          deferred-syntax)]
+                       [vdefun:fun-decl 
+                        (let ([new-defs (syntax-local-make-definition-context top-level-defs)])
+                          (bind-and-seal new-defs (list #'vdefun.name))
+                          (set! top-level-defs new-defs)
+                          (defer-l (defun #'vdefun ctx top-level-defs)))]
+                       [vdefs:decls 
+                        (let-values ([(new-defs expanded-stx) (def #'vdefs ctx (syntax-local-make-definition-context top-level-defs))])
+                          (set! top-level-defs new-defs)
+                          (defer-l expanded-stx))]))
+                   (set! top-level-defs (syntax-local-make-definition-context top-level-defs))
+                   out-form)
+                 #'unit.items))])
+           (no-expand #'(unit.translation-unit declaration ... ...))))])))
 
 (define-for-syntax display-inert-body
   (lambda (tag contents) 
