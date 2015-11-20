@@ -17,6 +17,7 @@
 
 (define internal-definition-context-apply/loc
   (lambda (def-ctx id) 
+    (display "idca/l ") (display id) (newline)
     (with-syntax
         ([tmp-id (internal-definition-context-apply def-ctx id)])
       (syntax/loc id tmp-id))))

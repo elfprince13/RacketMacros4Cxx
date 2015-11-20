@@ -39,7 +39,22 @@
 ; Simple skeletons here
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(translation-unit
+#;(translation-unit
+ (skeletons:
+  (SillyThunk "./SkelImpls/SillyThunk.rkt")
+  "./test-params.json")
+ (defun (extern ) (int (!)) puts ((() (const char * (!)) str)))
+ (@ SillyThunk (silly) ([@ CallSilly] [@ I])
+    (block 
+     (def (() (char (!)) oc))
+     (@ I (get_char) ([= oc]) ())
+     (call puts (& oc))))
+ (defun () (int (!)) main ((() (int (!)) argc) (() (char * * (!)) argv))
+   (block 
+    (@ CallSilly (silly1) () ())
+    (@ CallSilly (silly2) () ()))))
+
+#;(translation-unit
  (skeletons:
   (Repeat "./SkelImpls/LexicalUnroll.rkt")
   "./test-params.json")
@@ -53,7 +68,7 @@
         (= i (<< 1 ((- 5 i))))
         (= (* selm) (* ((+ selm i)))))))))
 
-(translation-unit
+#;(translation-unit
  (skeletons:
   (Loop1d "./SkelImpls/Loop1d.rkt")
   "./test-params.json")
@@ -88,7 +103,7 @@
          (= ret (% argc 4))))
     (return ret))))
 
-(translation-unit
+#;(translation-unit
  (skeletons:
   (Loop1d "./SkelImpls/Loop1d.rkt")
   "./test-params.json")
@@ -121,9 +136,12 @@
 ; No skeletons here
 ;;;;;;;;;;;;;;;;;;;;;
 
-#;(translation-unit
+(translation-unit
  (def (() (int (!)) i))
- (def (() (int (!)) j = i)))
+ (def (() (int (!)) j = i))
+ (defun () (int (!)) main ((() (int (!)) argc) (() (char * * (!)) argv)) 
+   (block 
+    (>++ j))))
 
 #;(translation-unit
 

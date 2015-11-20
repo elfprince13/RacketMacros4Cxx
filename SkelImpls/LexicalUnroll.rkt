@@ -31,8 +31,7 @@
                       #'(syntax-parser
                           [rep-skel:macro-@
                            (with-syntax 
-                               ([itr-val itr-val]
-                                [local-id (extract-expr-arg #'rep-skel.args 0)])
+                               ([local-id (extract-expr-arg #'rep-skel.args 0)])
                              #'(= local-id itr-val))]))
                     defs)
                    (internal-definition-context-seal defs)

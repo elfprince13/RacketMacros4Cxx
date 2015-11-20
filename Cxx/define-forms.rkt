@@ -1,5 +1,6 @@
 #lang racket
 (require 
+  macro-debugger/emit
   racket/syntax
   syntax/context
   syntax/parse
@@ -60,9 +61,11 @@
 (define defun
   (lambda (stx ctx defs)
     (syntax-parse stx
-      [func:fun-decl 
+      [func:fun-decl
+       (emit-local-step #'func.body (local-expand
+                     #'func.body ctx #f defs) #:id #'defun)
        (let ([defs (syntax-local-make-definition-context defs)]
-             [ctx (generate-expand-context)]
+             [ctx (build-expand-context ctx)]
              [args (parse-arg-names #'func.args)]
              [kw-args (parse-arg-names #'func.kw-args)])
          (syntax-local-bind-syntaxes args #f defs)
@@ -73,7 +76,7 @@
               stx
               (with-syntax*
                   ([f-name (internal-definition-context-apply/loc defs #'func.name)]
-                   [body (local-expand #'func.body (build-expand-context 'expression) #f defs)]
+                   [body (local-expand #'func.body ctx #f defs)]
                    [(arg ...) 
                     (subs-decl-ids 
                      (syntax->list #'func.args)
