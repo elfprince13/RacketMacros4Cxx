@@ -1,5 +1,9 @@
-extern int puts (const char * str);
-extern unsigned long strlen (const char * str);
+@Reinclude(Headers)[= "<stdlib.h>"][= "<stdio.h>"][= "<string.h>"];
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
 int main(int argc, char ** argv) {
 
 	int ret;
