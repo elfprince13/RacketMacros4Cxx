@@ -15,7 +15,7 @@
 
 (define SillyThunk
   (lambda (params-table) ; This allows the requiring module to pass through important bits of configuration, should they be necessary
-   (lambda (skel defs decl-f) 
+   (lambda (skel defs) 
       (syntax-parse skel
         [skel:macro-@
          (let*
@@ -35,7 +35,7 @@
                       (syntax-parse stx 
                         [invoke-skel:macro-@
                          (hash-set! instances (syntax->datum #'invoke-skel.name) count)
-                         (display instances) (newline)
+                         ;(display instances) (newline)
                          (set! count (+ count 1))
                          #'(call invoke-skel.name)])
                       instances)))
@@ -45,7 +45,7 @@
             (thunk
              (let
                  ([instances ((syntax-local-value (internal-definition-context-apply ret-defs invoke-macro) #f ret-defs))])
-               (display "mapping over ") (display instances) (newline)
+               ;(display "mapping over ") (display instances) (newline)
                (hash-map 
                 instances
                 (lambda (id ct)
@@ -54,8 +54,7 @@
                        [int-defs (syntax-local-make-definition-context defs)])
                     (syntax-local-bind-syntaxes
                      (list value-macro)
-                     (with-syntax ([ct ct]
-                                   [decl-f decl-f])
+                     (with-syntax ([ct ct])
                        #'(syntax-parser
                            [value-skel:macro-@
                             (with-syntax 
@@ -66,10 +65,13 @@
                     #;(emit-local-step value-skel-kind (internal-definition-context-apply/loc int-defs value-macro) #:id #'macroize-skel-kind)
                     #;(emit-local-step #'skel.child (local-expand
                      #'skel.child ctx #f int-defs) #:id #'skel.name)
-                    (decl-f 
+                    (defun 
                      (with-syntax 
-                         ([f-name id])
-                       #'(defun () (void (!)) f-name () skel.child))
+                         ([f-name id]
+                          ; This is a bad hack until we can figure out why defun sheds bindings
+                          [child (local-expand #'skel.child (generate-expand-context) #f int-defs)])
+                       #'(defun () (void (!)) f-name () child))
+                      ctx
                      int-defs))))))
             ret-defs
             (list

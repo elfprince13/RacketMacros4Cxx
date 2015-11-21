@@ -5,6 +5,7 @@
          syntax/context
          syntax/id-table
          syntax/parse
+         (for-syntax syntax/parse)
          "syntax-classes.rkt"
          syntax/stx)
 
@@ -17,21 +18,35 @@
 
 (define internal-definition-context-apply/loc
   (lambda (def-ctx id) 
-    (display "idca/l ") (display id) (newline)
+    ;(display "idca/l ") (display id) (newline)
     (with-syntax
         ([tmp-id (internal-definition-context-apply def-ctx id)])
       (syntax/loc id tmp-id))))
 
-(define expand-and-extend
-  (lambda (stx ctx defs [stoplist #f])
-    (values
-     (local-expand stx ctx stoplist defs)
-     (syntax-local-make-definition-context defs))))
+(define-syntax expand-and-extend
+  (syntax-parser
+    [(eae stx ctx defs (~optional stoplist))
+     (with-syntax
+         ([stoplist 
+           (if (attribute stoplist)
+               #'stoplist
+               #'#f)])
+       #'(values
+          (handle-expr stx ctx defs)
+          #;(local-expand stx ctx stoplist defs)
+          (syntax-local-make-definition-context defs)))]))
 
-(define bind-and-seal
-  (lambda (defs id-list [bind-to #f])
-    (syntax-local-bind-syntaxes id-list bind-to defs)
-    (internal-definition-context-seal defs)))
+(define-syntax bind-and-seal
+  (syntax-parser
+    [(bas defs id-list (~optional bind-to))
+     (with-syntax
+         ([bind-to 
+           (if (attribute bind-to)
+               #'bind-to
+               #'#f)])
+       #'(begin
+           (syntax-local-bind-syntaxes id-list bind-to defs)
+           (internal-definition-context-seal defs)))]))
 
 (define contextualize-args
   (lambda (args defs)
@@ -185,7 +200,7 @@
          (begin
            ;(display (~a stx "is a macro")) (newline)
            (local-expand stx ctxt #f defs))]
-        [(and (not pair?) id?) head #;(syntax-local-introduce head)]
+        [(and (not pair?) id?) (if defs (internal-definition-context-apply/loc defs head) head) #;(syntax-local-introduce head)]
         [pair? 
          (with-syntax
              ([(term ...) (stx-map (lambda (term) (handle-expr term ctxt defs)) stx)])

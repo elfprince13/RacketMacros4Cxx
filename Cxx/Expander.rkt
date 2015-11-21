@@ -33,7 +33,7 @@
   (make-hash))
 
 (define-for-syntax @-handler
-  (lambda (stx [in-defs #f] [decl-f #f])
+  (lambda (stx [in-defs #f])
     (syntax-parse stx 
       [skel:cxx-@
        ;(display (~a (list "Looking up" (syntax->datum #'skel.kind) "in" InitSkelIds))) (newline)
@@ -49,7 +49,7 @@
                  ([expandable #'(skel-macro (skel.name) skel.args skel.child)]
                   [macro (syntax-local-value #'skel-macro #f in-defs)])
                (if in-defs
-                   (macro expandable in-defs decl-f)
+                   (macro expandable in-defs)
                    (local-expand expandable (generate-expand-context) #f)))
              (raise-user-error (syntax->datum #'skel-macro) "Not bound as a skeleton in this context")))])))
 
@@ -101,47 +101,38 @@
                 (lambda (f)
                   ;(display "un-thunking") (display f) (newline)
                   (f))
-                (letrec 
-                    ([decl-f 
-                      (lambda (declaration top-level-defs)
-                        (define out-form 
-                          (syntax-parse declaration
-                            [record:record-decl (defer-l #'record)]
-                            [typedef:typedef-decl (defer-l #'typedef)]
-                            [tls:cxx-@
-                             (let-values ([(deferred-syntax new-defs new-skels) (@-handler #'tls top-level-defs decl-f)])
-                               (set! top-level-defs new-defs)
-                               (for ([bind-pair new-skels])
-                                 ;(emit-remark "introducing" (cdr bind-pair))
-                                 (hash-set! InitSkelIds (car bind-pair) (cdr bind-pair)))
-                               deferred-syntax)]
-                            [vdefun:fun-decl 
-                             (emit-local-step #'vdefun.body (local-expand
-                     #'vdefun.body ctx #f top-level-defs) #:id #'decl-f)
-                             (let ([new-defs (syntax-local-make-definition-context top-level-defs)])
-                               (bind-and-seal new-defs (list #'vdefun.name))
-                               (set! top-level-defs new-defs)
-                               (let ([defun-form (defun #'vdefun ctx top-level-defs)]) (defer-l defun-form)))]
-                            [vdefs:decls 
-                             (let-values ([(new-defs expanded-stx) (def #'vdefs ctx (syntax-local-make-definition-context top-level-defs))])
-                               (set! top-level-defs new-defs)
-                               (defer-l expanded-stx))]))
-                        (values
-                         (syntax-local-make-definition-context top-level-defs)
-                         out-form))])
-                  #;(let loop
-                    ([work (syntax->list #'unit.items)]
-                     [defs top-level-defs]
-                     [ctx ctx])
-                    (if (null? work)
-                        null
-                        (syntax-parse head)))
-                  (stx-map 
-                   (lambda (declaration)
-                     (let-values ([(out-defs out-form) (decl-f declaration top-level-defs)])
-                       (set! top-level-defs out-defs)
-                       out-form))
-                   #'unit.items)))])
+                
+                (let loop
+                  ([work (syntax->list #'unit.items)]
+                   [defs top-level-defs]
+                   [ctx ctx])
+                  (if (null? work)
+                      null
+                      (let-values ([(head rest) (values (car work) (cdr work))])
+                        ;(display head) (display " ") (display rest) (newline)
+                        (let-values 
+                            ([(head defs)
+                              (syntax-parse head
+                                [record:record-decl (values (defer-l #'record) defs)]
+                                [typedef:typedef-decl (values (defer-l #'typedef) defs)]
+                                [tls:cxx-@
+                                 (let-values ([(deferred-syntax defs new-skels) (@-handler #'tls defs)])
+                                   (for ([bind-pair new-skels])
+                                     ;(emit-remark "introducing" (cdr bind-pair))
+                                     (hash-set! InitSkelIds (car bind-pair) (cdr bind-pair)))
+                                   (values deferred-syntax defs))]
+                                [vdefun:fun-decl 
+                                 #;(emit-local-step #'vdefun.body (local-expand
+                                                                 #'vdefun.body ctx #f top-level-defs) #:id #'decl-f)
+                                 (let ([defs (syntax-local-make-definition-context defs)])
+                                   (bind-and-seal defs (list #'vdefun.name))
+                                   (emit-local-step #'vdefun.name (internal-definition-context-apply/loc defs #'vdefun.name) #:id #'bas)
+                                   (let ([defun-form (defun #'vdefun ctx defs)])
+                                     (values (defer-l defun-form) defs)))]
+                                [vdefs:decls 
+                                 (let-values ([(defs head) (def head ctx defs)])
+                                  (values (defer-l head) defs))])])
+                          (cons head (loop rest defs ctx)))))))])
            (no-expand #'(unit.translation-unit declaration ... ...))))])))
 
 (define-for-syntax display-inert-body

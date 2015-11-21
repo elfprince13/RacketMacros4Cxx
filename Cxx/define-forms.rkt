@@ -4,6 +4,7 @@
   racket/syntax
   syntax/context
   syntax/parse
+  (for-syntax syntax/parse)
   syntax/stx
   "syntax-classes.rkt"
   "util.rkt")
@@ -14,9 +15,10 @@
 ; Define definitions
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define init-var-to-context
-  (lambda (stx ctx defs)
-    (syntax-parse stx
+(define-syntax init-var-to-context
+  (syntax-parser 
+    [(ivtc stx ctx defs)
+     #'(syntax-parse stx
       [(var:var-init)
        (let*-values 
            ([(name) #'var.name]
@@ -24,11 +26,12 @@
              (handle-init 
               #'var.exp
               (thunk
-                (bind-and-seal defs (list name))
-                (values 
-                 (internal-definition-context-apply/loc defs name) 
-                 defs 
-                 #'()))
+               (let ([defs (syntax-local-make-definition-context defs)])
+                 (bind-and-seal defs (list name))
+                 (values 
+                  (internal-definition-context-apply/loc defs name) 
+                  defs 
+                  #'())))
               (lambda (eq-expr) 
                 (let-values 
                     ([(eq-expr defs)
@@ -56,13 +59,16 @@
           (with-syntax
               ([name name]
                [expr expr])
-            #'(name . expr))))])))
+            #'(name . expr))))])]))
 
 (define defun
   (lambda (stx ctx defs)
     (syntax-parse stx
       [func:fun-decl
-       (emit-local-step #'func.body (local-expand
+       (emit-local-step #'func.name 
+                        (internal-definition-context-apply/loc defs #'func.name) #:id #'defun)
+                                   
+       #;(emit-local-step #'func.body (local-expand
                      #'func.body ctx #f defs) #:id #'defun)
        (let ([defs (syntax-local-make-definition-context defs)]
              [ctx (build-expand-context ctx)]
@@ -87,36 +93,47 @@
                      (contextualize-args kw-args defs))]
                    [((attribute-term ...) ...) ; This is a splicing class so jam all the terms together
                     #'func.attributes])
+                (emit-local-step #'func.name #'f-name #:id #'defun2)
+                #;'die
                 #'(func.defun func.storage-classes func.ret-type f-name (arg ... kw-arg ...) attribute-term ... ... body)))))])))
 
 (define def
   (lambda (stx ctx defs)
     (syntax-parse stx
       [vars:decls
-       (let 
-           ([def-stx 
+       (let*-values 
+           ([(defs vars)
+             (let loop
+               ([work (cons
+                       #'vars.var
+                       (syntax->list #'vars.extra-vars))]
+                [defs defs]
+                [ctx ctx])
+               (if (null? work)
+                   (values defs null)
+                   (let-values ([(head rest) (values (car work) (cdr work))])
+                     ;(display head) (display " ") (display rest) (newline)
+                     (let-values 
+                         ([(defs head)
+                           (syntax-parse head
+                             [decl:var-decl
+                              (let-values 
+                                  ([(defs init) (init-var-to-context #'decl.init ctx defs)])
+                                (values 
+                                 defs 
+                                 #`(decl.storage-classes decl.type-info #,@init #,@#'decl.attributes)))]
+                             [(init:var-init) 
+                              (let-values
+                                  ([(defs init) (init-var-to-context #'init ctx defs)])
+                                (values defs init))])])
+                       (let-values ([(defs rest) (loop rest defs ctx)]) 
+                         (values defs (cons head rest)))))))]
+            [(def-stx) 
               (no-expand 
                (with-syntax*
                    ([(extra-types ...) #'vars.extra-type-infos]
-                    [(vars ...) 
-                     (map
-                      (lambda (stx)
-                        (let-values 
-                            ([(new-defs new-stx)
-                              (syntax-parse stx
-                                [decl:var-decl
-                                 (let-values 
-                                     ([(new-defs new-init) (init-var-to-context #'decl.init ctx defs)])
-                                   (values 
-                                    new-defs 
-                                    #`(decl.storage-classes decl.type-info #,@new-init #,@#'decl.attributes)))])])
-                          (set! defs new-defs)
-                          new-stx))
-                      (cons
-                       #'vars.var
-                       (syntax->list #'vars.extra-vars)))] ; heavy-lifting goes here
-                    [var (stx-car #'(vars ...))]
-                    [(extra-vars ...) (stx-cdr #'(vars ...))]
+                    [var (car vars)]
+                    [(extra-vars ...) (cdr vars)]
                     [(extras ...) 
                      (stx-map 
                       (lambda (t-stx v-stx)

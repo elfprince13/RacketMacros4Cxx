@@ -39,7 +39,7 @@
 ; Simple skeletons here
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
-#;(translation-unit
+(translation-unit
  (skeletons:
   (SillyThunk "./SkelImpls/SillyThunk.rkt")
   "./test-params.json")
@@ -54,7 +54,7 @@
     (@ CallSilly (silly1) () ())
     (@ CallSilly (silly2) () ()))))
 
-#;(translation-unit
+(translation-unit
  (skeletons:
   (Repeat "./SkelImpls/LexicalUnroll.rkt")
   "./test-params.json")
@@ -68,7 +68,7 @@
         (= i (<< 1 ((- 5 i))))
         (= (* selm) (* ((+ selm i)))))))))
 
-#;(translation-unit
+(translation-unit
  (skeletons:
   (Loop1d "./SkelImpls/Loop1d.rkt")
   "./test-params.json")
@@ -103,7 +103,7 @@
          (= ret (% argc 4))))
     (return ret))))
 
-#;(translation-unit
+(translation-unit
  (skeletons:
   (Loop1d "./SkelImpls/Loop1d.rkt")
   "./test-params.json")
@@ -138,10 +138,15 @@
 
 (translation-unit
  (def (() (int (!)) i))
- (def (() (int (!)) j = i))
+ (def (() (int (!)) j = i) (((!)) k = j))
  (defun () (int (!)) main ((() (int (!)) argc) (() (char * * (!)) argv)) 
-   (block 
-    (>++ j))))
+   (block
+    (def (() (int (!)) m))
+    (>++ m)
+    (>++ j)
+    (= j argc)
+    (= i argc)
+    (call main))))
 
 #;(translation-unit
 
