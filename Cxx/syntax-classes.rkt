@@ -142,6 +142,9 @@
   (pattern ((~bdatum defun) (storage ...) (~var ret-type cxx-type) (~var name id) (arg:var-decl ... kw-arg:var-decl ...) attr:c-attribute ... 
              (~bind [storage-classes #'(storage ...)] [args #'(arg ...)] [kw-args #'(kw-arg ...)] [attributes #'(attr ...)] [body #'()])))) ; forward declaration
 
+(define-syntax-class cxx-verbatim
+  (pattern ((~bdatum verbatim) blob:str)))
+
 ;;;;;;;;;;;;;;;;;;;;;;
 ; Some high-level stuff
 ;;;;;;;;;;;;;;;;;;;;;;
@@ -151,7 +154,8 @@
   (pattern item:record-decl)
   (pattern item:inline-record-typedef)
   (pattern item:decls)
-  (pattern item:fun-decl))
+  (pattern item:fun-decl)
+  (pattern item:cxx-verbatim))
 
 (define-syntax-class tu-stx
   (pattern ((~bdatum translation-unit) 

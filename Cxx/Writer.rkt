@@ -191,6 +191,7 @@
 (define make-cpp-decl 
   (lambda (stx [assume-decls-stmt #t])
     (syntax-parse stx
+      [vb:cxx-verbatim (syntax->datum #'vb.blob)]
       [typedef:typedef-decl
        (string-append
         "typedef "
