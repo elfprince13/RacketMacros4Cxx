@@ -26,9 +26,17 @@
                     (string-join 
                      (map make-cpp-expr (syntax->list #'(args ...))) ", ")
                     ")")]
+    [((~and cast-name
+            (~or
+             (~datum static_cast)
+             (~datum dynamic_cast)
+             (~datum reinterpret_cast)
+             (~datum const_cast))) cast-type:cxx-type cast-expr)
+     (string-append
+      (make-cpp-expr #'cast-name) "<" (synth-type-text #'cast-type "") ">(" (make-cpp-expr #'cast-expr) ")" )]
     [((~datum c-cast) cast-type:cxx-type cast-expr) 
      (string-append 
-      (synth-type-text #'cast-type "") (make-cpp-expr #'cast-expr))]
+      "(" (synth-type-text #'cast-type "") ")" (make-cpp-expr #'cast-expr))]
     [((paren-expr ...)) 
      (begin
        ;(display "this is a paren-expr: ") (display expr) (newline)

@@ -16,29 +16,38 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define-syntax make-n-op
-  (lambda (stx)
-    (syntax-parse stx
-      #:literals (make-n-op)
-      [(make-n-op op:id (~between n:exact-nonnegative-integer 1 2) ...)
-       (let*
-           ([op-counts (syntax->datum #'(n ...))]
-            [min-count (car op-counts)]
-            [max-count 
-             (if (eq? 2 (length op-counts))
-                 (cadr op-counts)
-                 min-count)])
-         (with-syntax
-             ([min-count min-count]
-              [max-count max-count])
-           ;(display (~a (list "Meow:" #''op #'min-count #'max-count))) (newline)
-           #'(define-syntax op
-               (lambda (stx)
-                 (syntax-parse stx
-                     [((~bdatum opn op) (~between term:cxx-expr min-count max-count) (... ...))
-                      ;#''(term (... ...))
-                      (with-syntax
-                          ([(term (... ...)) (handle-expr-list #'(term (... ...)))])
-                          (no-expand #'(opn term (... ...))))])))))])))
+  (syntax-parser
+    #:literals (make-n-op)
+    [(make-n-op op:id (~between n:exact-nonnegative-integer 1 2) ...)
+     (let*
+         ([op-counts (syntax->datum #'(n ...))]
+          [min-count (car op-counts)]
+          [max-count 
+           (if (eq? 2 (length op-counts))
+               (cadr op-counts)
+               min-count)])
+       (with-syntax
+           ([min-count min-count]
+            [max-count max-count])
+         ;(display (~a (list "Meow:" #''op #'min-count #'max-count))) (newline)
+         #'(define-syntax op
+             (syntax-parser
+               [((~bdatum opn op) (~between term:cxx-expr min-count max-count) (... ...))
+                ;#''(term (... ...))
+                (with-syntax
+                    ([(term (... ...)) (handle-expr-list #'(term (... ...)))])
+                  (no-expand #'(opn term (... ...))))]))))]))
+
+(define-syntax make-cast
+  (syntax-parser
+    #:literals (make-cast)
+    [(make-cast cast-name)
+     #'(define-syntax cast-name
+         (syntax-parser
+             [((~bdatum cast-name) target:cxx-type term:cxx-expr)
+              (with-syntax
+                  ([term (handle-expr #'term)])
+                (no-expand #'(cast-name target term)))]))]))
 
 ; Assignment operators
 (make-n-op = 2)
@@ -87,6 +96,12 @@
 (make-n-op >++ 1)
 (make-n-op --< 1)
 (make-n-op ++< 1)
+
+(make-cast c-cast)
+(make-cast reinterpret_cast)
+(make-cast static_cast)
+(make-cast dynamic_cast)
+(make-cast const_cast)
 
 (define-syntax call
   (lambda (stx)

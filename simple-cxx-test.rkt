@@ -144,8 +144,8 @@
     (def (() (int (!)) m))
     (>++ m)
     (>++ j)
-    (= j argc)
-    (= i argc)
+    (= j (c-cast (int (!)) argc))
+    (= i (reinterpret_cast (int (!)) argc))
     (call main))))
 
 #;(translation-unit
