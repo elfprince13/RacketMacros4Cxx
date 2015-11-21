@@ -45,7 +45,7 @@
                              (skeleton-pairs (cons (cons sym file) (skeleton-pairs)))]
    [("-f" "--clang-flag") cf
                           "Add a flag for clang to use at compile time"
-                          (skeleton-pairs)]
+                          (clang-flags (cons cf (clang-flags)))]
    #:args (cfg src)
    (config-file cfg)
    (path->string
@@ -219,7 +219,9 @@ Failed to expand the following program:
            [(command-line) (reverse (cons tmp-file (clang-flags)))]
            [(sexp-process
              stdout stdin stderr)
-            (apply subprocess stdout stdin stderr clang-path command-line)]
+            (begin
+              (display clang-path) (display " ") (display (~a command-line)) (newline)
+            (apply subprocess stdout stdin stderr clang-path command-line))]
            [(exit-status error-text)
             (begin 
               (subprocess-wait sexp-process)
