@@ -56,10 +56,7 @@
                      (list value-macro)
                      (with-syntax ([ct ct])
                        #'(syntax-parser
-                           [value-skel:macro-@
-                            (with-syntax 
-                                ([local-id (extract-expr-arg #'value-skel.args 0)])
-                              #'(= local-id ct))]))
+                           [value-skel:macro-@expr #'ct]))
                      int-defs)
                     (internal-definition-context-seal int-defs)
                     #;(emit-local-step value-skel-kind (internal-definition-context-apply/loc int-defs value-macro) #:id #'macroize-skel-kind)

@@ -29,10 +29,7 @@
                     (list rep-macro)
                     (with-syntax ([itr-val rep-ct])
                       #'(syntax-parser
-                          [rep-skel:macro-@
-                           (with-syntax 
-                               ([local-id (extract-expr-arg #'rep-skel.args 0)])
-                             #'(= local-id itr-val))]))
+                          [rep-skel:macro-@expr #'itr-val]))
                     defs)
                    (internal-definition-context-seal defs)
                    (local-expand #'skel.child ctx #f defs))

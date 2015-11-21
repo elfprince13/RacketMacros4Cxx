@@ -46,8 +46,7 @@
  (defun (extern ) (int (!)) puts ((() (const char * (!)) str)))
  (@ SillyThunk (silly) ([@ CallSilly] [@ I])
     (block 
-     (def (() (char (!)) oc))
-     (@ I (get_char) ([= oc]) ())
+     (def (() (const char (!)) oc = (reinterpret_cast (char (!)) (@ I (get_char) ()))))
      (call puts (& oc))))
  (defun () (int (!)) main ((() (int (!)) argc) (() (char * * (!)) argv))
    (block 
@@ -60,12 +59,10 @@
   "./test-params.json")
  (defun () (void (!)) reduce_warp (((volatile) (int * (!)) sdata) (() (int (!)) tid))  __attribute__((__device__))
    (block 
-    (def (() (int (!)) selm = (+ sdata tid)))
+    (def (() (const int (!)) selm = (+ sdata tid)))
     (@ Repeat (reduce_warp) ([@ I] [= 6])
        (block
-        (def (() (int (!)) i))
-        (@ I (reduce_idx) ([= i]) ())
-        (= i (<< 1 ((- 5 i))))
+        (def (() (const int (!)) i = (<< 1 ((- 5 (reinterpret_cast (int (!)) (@ I (reduce_idx) ())))))))
         (= (* selm) (* ((+ selm i)))))))))
 
 (translation-unit
@@ -86,7 +83,7 @@
              (def (() (int (!)) j1))
              (@ Loop1d (test_loop) ([@ J] [= 0] [= argc])
                 (block
-                 (def (() (const int (!)) j = (@ J (test_iterator) ())))
+                 (def (() (const int (!)) j = (reinterpret_cast (int (!)) (@ J (test_iterator) ()))))
                  (= j1 (@ I (test_iterator) ()))
                  (if (> (call strlen (* ((+ argv j1)))) 0)
                      (>++ ((* ((+ argv j1))))))
