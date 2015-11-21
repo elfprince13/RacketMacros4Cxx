@@ -35,7 +35,7 @@
 (define-for-syntax @-handler
   (lambda (stx [in-defs #f])
     (syntax-parse stx 
-      [skel:cxx-@
+      [(~or skel:cxx-@ skel:cxx-@expr)
        ;(display (~a (list "Looking up" (syntax->datum #'skel.kind) "in" InitSkelIds))) (newline)
        (with-syntax
            ([skel-macro
@@ -46,7 +46,10 @@
          (emit-local-step #'skel.kind #'skel-macro #:id #'macroize-skel-kind)
          (if (syntax-local-value #'skel-macro (thunk #f) in-defs)
              (let
-                 ([expandable #'(skel-macro (skel.name) skel.args skel.child)]
+                 ([expandable
+                   (if (attribute skel.child)
+                       #'(skel-macro (skel.name) skel.args skel.child)
+                       #'(skel-macro (skel.name) skel.args))]
                   [macro (syntax-local-value #'skel-macro #f in-defs)])
                (if in-defs
                    (macro expandable in-defs)

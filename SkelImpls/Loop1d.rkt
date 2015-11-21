@@ -26,11 +26,10 @@
           (list itr-macro)
           (with-syntax ([itr-id itr-id])
             #'(syntax-parser
-                [itr-skel:macro-@
+                [itr-skel:macro-@expr
                  (with-syntax 
-                     ([itr-id (syntax-local-introduce #'itr-id)]
-                      [local-id (extract-expr-arg #'itr-skel.args 0)])
-                   #'(= local-id itr-id))]))
+                     ([itr-id (syntax-local-introduce #'itr-id)])
+                   #'itr-id)]))
           defs)
          (internal-definition-context-seal defs)
          (with-syntax 

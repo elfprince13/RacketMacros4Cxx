@@ -86,9 +86,8 @@
              (def (() (int (!)) j1))
              (@ Loop1d (test_loop) ([@ J] [= 0] [= argc])
                 (block
-                 (def (() (int (!)) j))
-                 (@ J (test_iterator) ([= j]) ())
-                 (@ I (test_iterator) ([= j1]) ())
+                 (def (() (const int (!)) j = (@ J (test_iterator) ())))
+                 (= j1 (@ I (test_iterator) ()))
                  (if (> (call strlen (* ((+ argv j1)))) 0)
                      (>++ ((* ((+ argv j1))))))
                  (call puts (* ((+ argv j1))))
@@ -123,8 +122,7 @@
        (call puts (* ((+ argv i))))))
     (@ Loop1d (test_loop) ([@ I] [= 0] [= argc])
        (block
-        (def (() (int (!)) j1))
-        (@ I (test_iterator) ([= j1]) ())
+        (def (() (const int (!)) j1 = (@ I (test_iterator) ())))
         (if (> (call strlen (* ((+ argv j1)))) 0)
             (>++ ((* ((+ argv j1))))))
         (call puts (* ((+ argv j1))))))

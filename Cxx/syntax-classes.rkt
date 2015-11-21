@@ -43,6 +43,10 @@
 ;;;;;;;;;;;;;;;;;;;;;;
 ; Expressions
 ;;;;;;;;;;;;;;;;;;;;;;
+
+(define-syntax-class cxx-@expr
+  (pattern ((~bdatum @) kind:id (name:id) args:skeleton-args)))
+
 (define-syntax-class cxx-expr
   (pattern (term ...+ (~bind [terms #'(term ...)])))
   (pattern atom))
@@ -90,6 +94,9 @@
 ; We use this pattern internally, but should never appear in input-forms
 (define-syntax-class macro-@
   (pattern (@kind:id (name:id) args:skeleton-args child:cxx-stmt)))
+
+(define-syntax-class macro-@expr
+  (pattern (@kind:id (name:id) args:skeleton-args)))
 
 (define-syntax-class cxx-stmt
   (pattern item:cxx-empty)
