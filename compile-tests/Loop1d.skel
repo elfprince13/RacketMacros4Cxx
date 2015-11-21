@@ -1,0 +1,26 @@
+extern int puts (const char * str);
+extern unsigned long strlen (const char * str);
+int main(int argc, char ** argv) {
+
+	int ret;
+	if (argc % 4 == 0) {
+		@Loop1d(test_loop)[@ I][= 0 + 0][= 0 + argc] {
+			int j1;
+			@Loop1d(test_loop)[@ J][= 0][= argc] {
+				const int j = reinterpret_cast<int>(@J(test_iterator));
+				j1 = reinterpret_cast<int>(@I(test_iterator));
+				if(strlen(*(argv + j1)) > 0)
+					(*(argv + j1))++;
+				puts(*(argv + j1));
+				if(strlen(*(argv + j)) > 0)
+					(*(argv + j))++;
+				puts(*(argv + j));
+			}
+		}
+		const char nl = '\n';
+		puts(&nl);
+	} else {
+		ret = argc % 4;
+	}
+	return ret;
+}
