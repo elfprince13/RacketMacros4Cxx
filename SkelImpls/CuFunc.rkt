@@ -1,0 +1,81 @@
+#lang racket
+(require 
+  macro-debugger/emit
+  racket/set
+  racket/syntax
+  syntax/context
+  syntax/parse
+  syntax/stx)
+(require
+  Cxx/define-forms
+  (for-template Cxx/core-forms)
+  Cxx/syntax-classes
+  Cxx/util)
+
+(provide CuFunc)
+
+(define CuFunc
+  (lambda (params-table) ; This allows the requiring module to pass through important bits of configuration, should they be necessary
+   (lambda (skel defs) 
+      (syntax-parse skel
+        [skel:macro-@
+         (let*
+             ([base-name #'skel.name]
+              [invoke-skel-kind (extract-id-arg #'skel.args 0)]
+              [invoke-macro (syntax-local-introduce (macroize-skel-kind invoke-skel-kind))]
+              [bind-list (list invoke-macro)]
+              [storage-id (extract-id-arg #'skel.args 1)]
+              [fun-args
+               (map
+                (lambda (i)
+                  (syntax-parse (extract-stmt-arg #'skel.args i)
+                    [var:decls
+                     #'var.var]))
+                (range 2 (length (stx->list #'skel.args))))]
+              [ret-defs (syntax-local-make-definition-context defs)])
+           (syntax-local-bind-syntaxes
+            bind-list
+            (with-syntax ()
+              #'(let ([instances (mutable-set)])
+                  (lambda ([stx #f])
+                    (if stx
+                        (syntax-parse stx 
+                          [invoke-skel:macro-@
+                           (let 
+                               ([val (syntax->datum (extract-expr-arg #'invoke-skel.args 0))])
+                             (set-add! instances val)
+                             (with-syntax 
+                                 ([fname (format-id #'skel.name "~a~a" #'skel.name val #:source #'skel.name #:props #'skel.name)]
+                                  [(arg (... ...)) 
+                                   (map
+                                    (lambda (i)
+                                      (extract-expr-arg #'invoke-skel.args i))
+                                    (range 1 (length (stx->list #'invoke-skel.args))))])
+                               #'(call fname arg (... ...))))])
+                        instances))))
+            ret-defs)
+           (internal-definition-context-seal ret-defs)
+           (values
+            (thunk
+             (let
+                 ([instances ((syntax-local-value (internal-definition-context-apply ret-defs invoke-macro) #f ret-defs))])
+               ;(display "mapping over ") (display instances) (newline)
+               (set-map 
+                instances
+                (lambda (val)
+                  (let* 
+                      ([ctx (syntax-local-context)])
+                    (defun 
+                     (with-syntax 
+                         ([fname (format-id base-name "~a~a" base-name val #:source base-name #:props base-name)]
+                          [(fun-arg ...) fun-args]
+                          [cu-attr storage-id])
+                       #'(defun () (void (!)) fname (fun-arg ...) __attribute__ ((cu-attr)) skel.child))
+                      ctx
+                     defs))))))
+            ret-defs
+            (list
+             (let
+                 ([sym (syntax->datum invoke-skel-kind)]
+                  [binding (internal-definition-context-apply/loc ret-defs invoke-macro)])
+               (cons sym binding)))))]))))
