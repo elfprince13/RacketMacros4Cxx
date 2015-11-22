@@ -1,5 +1,5 @@
 # Racket Macros for C++
-This repository provides a toolchain for writing C++ macros using [http://racket-lang.org/](Racket)'s excellent macro facilities.
+This repository provides a toolchain for writing C++ macros using [Racket](http://racket-lang.org/)'s excellent macro facilities.
 
 This requires building our fork of llvm / clang. Once you've done so, you can use `compile-cxx.rkt` to work with the toolchain. An example invocation is as follows:
 
