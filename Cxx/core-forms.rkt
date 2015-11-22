@@ -90,6 +90,11 @@
 (make-n-op << 2)
 (make-n-op >> 2)
 
+; Other weird stuff
+(make-n-op |,| 2) 
+(make-n-op |.| 2) 
+(make-n-op |->| 2) 
+
 ; conditional
 (make-n-op ?: 3)
 
