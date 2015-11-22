@@ -137,8 +137,8 @@
 
 (define-splicing-syntax-class var-init
   (pattern (~seq (~var name id) (~bind [exp #'()])))
-  (pattern (~seq (~var name id) (~bdatum =) init-exp:expr ...+ (~bind [exp #'(= init-exp ...)])))
-  (pattern (~seq (~var name id) ( init-exp:expr ...+) (~bind [exp #'((init-exp ...))]))))
+  (pattern (~seq (~var name id) (~bdatum =) init-exp:cxx-expr (~bind [exp #'(= init-exp)])))
+  (pattern (~seq (~var name id) (init-exp:cxx-expr) (~bind [exp #'(init-exp)]))))
 
 (define-syntax-class typedef-decl
   (pattern ((~bdatum typedef) (qualifier ...) type-info:cxx-type (~var new-name id) (~bind [qualifiers #'(qualifier ...)]))))

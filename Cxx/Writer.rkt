@@ -133,15 +133,19 @@
      (handle-init 
       #'init.exp 
       (thunk "")
-      (lambda (eq-expr) (string-append " = " (make-cpp-expr (stx-car eq-expr))))
-      (lambda (paren-expr) (make-cpp-expr paren-expr)))]))
+      (lambda (eq-expr) (string-append "= " (make-cpp-expr (stx-car eq-expr))))
+      (lambda (paren-expr) (string-append "(" (make-cpp-expr paren-expr) ")")))]))
 
 (define make-cpp-single-decl
   (syntax-parser
     [var:var-decl 
      (string-append
       (make-storage-classes #'var.storage-classes)
-      (synth-type-text #'var.type-info (string-from-stx #'var.name)) (make-cpp-init #'var.init))]))
+      (synth-type-text #'var.type-info (string-from-stx #'var.name)) (make-cpp-init #'var.init)
+      (let ([attr-text (make-attributes #'var.attributes)])
+        (if (equal? attr-text "")
+            ""
+            (string-append " " attr-text))))]))
 
 (define make-storage-classes
   (lambda (storage-syntax [string-f string-from-stx])

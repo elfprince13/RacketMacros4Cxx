@@ -42,7 +42,7 @@
                    defs 
                    (with-syntax 
                        ([eq-expr eq-expr])
-                     #'(= . eq-expr)))))
+                     #'(= eq-expr)))))
               (lambda (paren-expr) 
                 (let-values 
                     ([(paren-expr defs)
@@ -53,7 +53,7 @@
                    defs 
                    (with-syntax 
                        ([paren-expr paren-expr])
-                     #'paren-expr)))))])
+                     #'(paren-expr))))))])
          (values 
           defs
           (with-syntax
@@ -123,7 +123,8 @@
                                   ([(defs init) (init-var-to-context #'decl.init ctx defs)])
                                 (values 
                                  defs 
-                                 #`(decl.storage-classes decl.type-info #,@init #,@#'decl.attributes)))]
+                                 (with-syntax ([((attr-term ...) ...) #'decl.attributes])
+                                 #`(decl.storage-classes decl.type-info #,@init attr-term ... ...))))]
                              [(init:var-init) 
                               (let-values
                                   ([(defs init) (init-var-to-context #'init ctx defs)])
