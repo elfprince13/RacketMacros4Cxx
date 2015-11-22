@@ -13,7 +13,7 @@
 }
 
 @CuFunc(reduce)[@ Reduce][@ LogSize][@ global][int *g_idata;][int *g_odata;][unsigned int n;]{
-	extern __attribute__((shared)) int sdata[];
+	extern __attribute__((shared)) int *sdata;
 	*(sdata + n) = *(g_idata + n);
 	@WReduce(WReduce512)[= @LogSize(oursize)][= 0][= 0];
 }
@@ -21,17 +21,10 @@
 int main(int argc, char ** argv) {
 	int blocksize = argc;
 	switch(blocksize){
-		case 512:
-	@Reduce(Reduce512)[= 9][= 0][= 0][= 0];
-			break;
-		case 128:
-	@Reduce(Reduce128)[= 7][= 0][= 0][= 0];
-			break;
-		case 8:
-	@Reduce(Reduce8)[= 3][= 0][= 0][= 0];
-		default:
-			blocksize = 2;
-			return 0;
+	@Repeat(unrollSwitch)[@ I][= 9][= 0][= -1]{
+		case @I(caseN):
+			@Reduce(reduceN)[= @I(caseN)][= 0][= 0][= 0];
+	}
 	}
 	return 1;
 }
