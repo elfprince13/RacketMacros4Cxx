@@ -14,10 +14,10 @@
   (lambda (params-table) ; This allows the requiring module to pass through important bits of configuration, should they be necessary
     (syntax-parser
       [skel:macro-@
-       (let*
-           ([rep-skel-kind (extract-id-arg #'skel.args 0)]
-            [rep-macro (macroize-skel-kind rep-skel-kind)]
-            [rep-ct (syntax->datum (extract-expr-arg #'skel.args 1))])
+       (let*-values
+           ([(rep-skel-kind) (extract-id-arg #'skel.args 0)]
+            [(rep-macro) (macroize-skel-kind rep-skel-kind)]
+            [(from to by) (apply values (stx-map (compose get-number handle-expr extract-expr-arg) (stx-cdr #'skel.args)))])
          (no-expand 
           (with-syntax 
               ([(child ...)
@@ -33,5 +33,5 @@
                     defs)
                    (internal-definition-context-seal defs)
                    (local-expand #'skel.child ctx #f defs))
-                 (range rep-ct))])
+                 (range from to by))])
             #'(block child ...))))])))

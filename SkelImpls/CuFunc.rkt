@@ -19,20 +19,28 @@
    (lambda (skel defs) 
       (syntax-parse skel
         [skel:macro-@
-         (let*
-             ([base-name #'skel.name]
-              [invoke-skel-kind (extract-id-arg #'skel.args 0)]
-              [invoke-macro (syntax-local-introduce (macroize-skel-kind invoke-skel-kind))]
-              [bind-list (list invoke-macro)]
-              [storage-id (extract-id-arg #'skel.args 1)]
-              [fun-args
-               (map
-                (lambda (i)
-                  (syntax-parse (extract-stmt-arg #'skel.args i)
-                    [var:decls
-                     #'var.var]))
-                (range 2 (length (stx->list #'skel.args))))]
-              [ret-defs (syntax-local-make-definition-context defs)])
+         (let*-values
+             ([(base-name) #'skel.name]
+              [(args) (stx->list #'skel.args)]
+              [(skel-kinds storage-id fun-args)
+               (let*-values ([(id-args stmt-args) (split-at args 3)]
+                             [(skel-args storage-args) (split-at (map extract-id-arg id-args) 2)])
+                 (values
+                  skel-args
+                  (car storage-args)
+                  (map
+                   (compose 
+                    (syntax-parser
+                      [var:decls
+                       #'var.var])
+                    extract-stmt-arg)
+                   stmt-args)))]
+              [(invoke-skel-kind size-skel-kind) (apply values skel-kinds)]
+              [(invoke-macro size-macro) 
+               (apply values (map macroize-skel-kind skel-kinds))]
+              [(invoke-macro) (syntax-local-introduce invoke-macro)]
+              [(bind-list) (list invoke-macro)]
+              [(ret-defs) (syntax-local-make-definition-context defs)])
            (syntax-local-bind-syntaxes
             bind-list
             (with-syntax ()
@@ -42,7 +50,7 @@
                         (syntax-parse stx 
                           [invoke-skel:macro-@
                            (let 
-                               ([val (syntax->datum (extract-expr-arg #'invoke-skel.args 0))])
+                               ([val (get-number (handle-expr (extract-expr-arg #'invoke-skel.args 0)))])
                              (set-add! instances val)
                              (with-syntax 
                                  ([fname (format-id #'skel.name "~a~a" #'skel.name val #:source #'skel.name #:props #'skel.name)]
@@ -66,13 +74,18 @@
                   (let* 
                       ([ctx (syntax-local-context)])
                     (defun 
-                     (with-syntax 
-                         ([fname (format-id base-name "~a~a" base-name val #:source base-name #:props base-name)]
-                          [(fun-arg ...) fun-args]
-                          [cu-attr storage-id])
-                       #'(defun () (void (!)) fname (fun-arg ...) __attribute__ ((cu-attr)) skel.child))
+                      (with-syntax 
+                          ([fname (format-id base-name "~a~a" base-name val #:source base-name #:props base-name)]
+                           [(fun-arg ...) fun-args]
+                           [cu-attr storage-id])
+                        #'(defun () (void (!)) fname (fun-arg ...) __attribute__ ((cu-attr)) skel.child))
                       ctx
-                     defs))))))
+                      defs
+                      (cons 
+                       (list size-macro)
+                       (with-syntax ([val val])
+                         #'(syntax-parser
+                             [value-skel:macro-@expr #'val])))))))))
             ret-defs
             (list
              (let

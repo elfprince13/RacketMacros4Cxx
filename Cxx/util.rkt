@@ -155,8 +155,12 @@
   (let 
       ([make-extractor
         (lambda (extract-f)
-          (lambda (args pos)
-            (let ([arg-stx (list-ref (syntax->list args) pos)])
+          (lambda (args [pos #f])
+            (let 
+                ([arg-stx 
+                  (if pos
+                      (list-ref (syntax->list args) pos)
+                      args)])
               (extract-f arg-stx))))])
     (values 
      (make-extractor
@@ -188,6 +192,12 @@
      (lambda (stx)
        (handle-expr stx))
        stx-l)))
+
+(define get-number
+  (syntax-parser
+    [n:number (syntax->datum #'n)]
+    [(maybe) (get-number #'maybe)]
+    [else (raise-user-error 'get-number (~a (list "Not a number @ " #'else)))]))
 
 (define handle-expr
   (lambda (stx [ctxt 'expression] [defs #f])

@@ -50,26 +50,18 @@
                 instances
                 (lambda (id ct)
                   (let* 
-                      ([ctx (syntax-local-context)]
-                       [int-defs (syntax-local-make-definition-context defs)])
-                    (syntax-local-bind-syntaxes
-                     (list value-macro)
-                     (with-syntax ([ct ct])
-                       #'(syntax-parser
-                           [value-skel:macro-@expr #'ct]))
-                     int-defs)
-                    (internal-definition-context-seal int-defs)
-                    #;(emit-local-step value-skel-kind (internal-definition-context-apply/loc int-defs value-macro) #:id #'macroize-skel-kind)
-                    #;(emit-local-step #'skel.child (local-expand
-                     #'skel.child ctx #f int-defs) #:id #'skel.name)
+                      ([ctx (syntax-local-context)])
                     (defun 
-                     (with-syntax 
-                         ([f-name id]
-                          ; This is a bad hack until we can figure out why defun sheds bindings
-                          [child (local-expand #'skel.child (generate-expand-context) #f int-defs)])
-                       #'(defun () (void (!)) f-name () child))
+                      (with-syntax 
+                          ([f-name id])
+                        #'(defun () (void (!)) f-name () skel.child))
                       ctx
-                     int-defs))))))
+                      defs
+                      (cons 
+                       (list value-macro)
+                       (with-syntax ([ct ct])
+                         #'(syntax-parser
+                             [value-skel:macro-@expr #'ct])))))))))
             ret-defs
             (list
              (let

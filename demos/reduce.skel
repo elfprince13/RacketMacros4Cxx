@@ -5,24 +5,30 @@
 #include <cuda.h>
 
 
-@CuFunc(warpReduce)[@ WReduce][@ device][volatile int *sdata;][unsigned int tid;]{
-	(*(sdata+tid))++;
+@CuFunc(warpReduce)[@ WReduce][@ LogSize][@ device][volatile int *sdata;][unsigned int tid;]{
+	volatile int* tdata = sdata+tid;
+	@Repeat(unrollWarp)[@ I][= @Min(fromCt)[= 6][= @LogSize(unrollCt)]][= 1][= (-1)]
+			(*tdata) += *(tdata + (1 << (reinterpret_cast<int>(@I(iter)) - 1)));
+	
 }
 
-@CuFunc(reduce)[@ Reduce][@ global][int *g_idata;][int *g_odata;][unsigned int n;]{
+@CuFunc(reduce)[@ Reduce][@ LogSize][@ global][int *g_idata;][int *g_odata;][unsigned int n;]{
 	extern __attribute__((shared)) int sdata[];
 	*(sdata + n) = *(g_idata + n);
-	@WReduce(WReduce512)[= 512][= 0][= 0];
+	@WReduce(WReduce512)[= @LogSize(oursize)][= 0][= 0];
 }
 
 int main(int argc, char ** argv) {
 	int blocksize = argc;
-	@Reduce(Reduce512)[= 512][= 0][= 0][= 0];
 	switch(blocksize){
 		case 512:
+	@Reduce(Reduce512)[= 9][= 0][= 0][= 0];
 			break;
 		case 128:
+	@Reduce(Reduce128)[= 7][= 0][= 0][= 0];
 			break;
+		case 8:
+	@Reduce(Reduce8)[= 3][= 0][= 0][= 0];
 		default:
 			blocksize = 2;
 			return 0;

@@ -39,6 +39,7 @@
 ; Simple skeletons here
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
+
 (translation-unit
  (skeletons:
   (SillyThunk "./SkelImpls/SillyThunk.rkt")
@@ -55,12 +56,13 @@
 
 (translation-unit
  (skeletons:
+  (Min "./SkelImpls/Math.rkt")
   (Repeat "./SkelImpls/LexicalUnroll.rkt")
   "./test-params.json")
  (defun () (void (!)) reduce_warp (((volatile) (int * (!)) sdata) (() (int (!)) tid))  __attribute__((__device__))
    (block 
     (def (() (const int (!)) selm = (+ sdata tid)))
-    (@ Repeat (reduce_warp) ([@ I] [= 6])
+    (@ Repeat (reduce_warp) ([@ I] [= (@ Min (blocks) ([= 8][= 10][= 6]))] [= 0] [= -2])
        (block
         (def (() (const int (!)) i = (<< 1 ((- 5 (reinterpret_cast (int (!)) (@ I (reduce_idx) ())))))))
         (= (* selm) (* ((+ selm i)))))))))

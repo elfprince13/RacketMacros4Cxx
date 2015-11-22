@@ -62,7 +62,7 @@
             #'(name . expr))))])]))
 
 (define defun
-  (lambda (stx ctx defs)
+  (lambda (stx ctx defs [sneaky-bindings #f])
     (syntax-parse stx
       [func:fun-decl
        (emit-local-step #'func.name 
@@ -76,6 +76,8 @@
              [kw-args (parse-arg-names #'func.kw-args)])
          (syntax-local-bind-syntaxes args #f defs)
          (syntax-local-bind-syntaxes kw-args #f defs)
+         (when sneaky-bindings
+           (syntax-local-bind-syntaxes (car sneaky-bindings) (cdr sneaky-bindings) defs))
          (internal-definition-context-seal defs)
          (no-expand
           (if (stx-null? #'func.body) 
