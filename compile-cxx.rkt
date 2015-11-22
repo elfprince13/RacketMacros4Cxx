@@ -6,6 +6,7 @@
 (define bindir (make-parameter #f))
 (define clang-flags (make-parameter null))
 (define skeleton-search-paths (make-parameter null))
+(define header-search-paths (make-parameter null))
 (define skeleton-pairs (make-parameter null))
 (define config-file (make-parameter #f))
 (define delete-temps (make-parameter #t))
@@ -46,6 +47,12 @@
    [("-f" "--clang-flag") cf
                           "Add a flag for clang to use at compile time"
                           (clang-flags (cons cf (clang-flags)))]
+   [("-I" "--include-search-dir") isd
+                          "Add an include search dir. Also added to the compile time flags"
+                          (let 
+                              ([flag (string-append "-I" isd)])
+                            (header-search-paths (cons flag (header-search-paths)))
+                            (clang-flags (cons flag (clang-flags))))]
    #:args (cfg src)
    (config-file cfg)
    (path->string
@@ -77,7 +84,7 @@
       ([(stdout stdin stderr) 
         (values #f (open-input-file file-to-compile) #f)]
        [(command-line) 
-        (list "-cc1" "-ast-sexp" "-fdiagnostics-show-option" "-fcolor-diagnostics" "-x" "skeletons")] ; (string-join (reverse ())) need you later
+        (list* "-cc1" "-ast-sexp" "-fdiagnostics-show-option" "-fcolor-diagnostics" "-x" "skeletons" (reverse (header-search-paths)))] ; (string-join (reverse ())) need you later
        [(sexp-process
          stdout _ stderr) ; safe to discard results of stdin because we supplied our own ports
         (apply subprocess stdout stdin stderr clang-path command-line)]
