@@ -38,7 +38,7 @@ int cudaConfigureCall(dim3 grid_size, dim3 block_size, unsigned shared_size = 0,
                       cudaStream_t stream = 0);
 
 @CuFunc(warpReduce)[@ WReduce][@ LogSize][@ device][volatile int *sdata;][unsigned int tid;]{
-	volatile int* tdata = sdata+tid;
+	volatile int* const tdata = sdata+tid;
 	@Repeat(unrollWarp)[@ I][= @Min(fromCt)[= 6][= @LogSize(unrollCt)]][= 1][= (-1)]
 			(*tdata) += *(tdata + (1 << (reinterpret_cast<int>(@I(iter)) - 1)));
 	
