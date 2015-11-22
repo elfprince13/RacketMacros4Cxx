@@ -55,9 +55,9 @@
 ; Skeleton arguments
 ;;;;;;;;;;;;;;;;;;;;;;
 (define-syntax-class skel-id-arg
-  (pattern (@ arg-id:id)))
+  (pattern ((~bdatum @) arg-id:id)))
 (define-syntax-class skel-expr-arg
-  (pattern (= arg-expr:cxx-expr)))
+  (pattern ((~bdatum =) arg-expr:cxx-expr)))
 (define-syntax-class skel-stmt-arg
   (pattern (arg-stmt:cxx-stmt)))
 
@@ -72,19 +72,35 @@
 ;;;;;;;;;;;;;;;;;;;;;;
 ; Statements
 ;;;;;;;;;;;;;;;;;;;;;;
+
+(define-syntax-class cxx-break
+  (pattern ((~bdatum keyword break))))
+
+(define-syntax-class cxx-continue
+  (pattern ((~bdatum keyword continue))))
+
+(define-syntax-class cxx-default
+  (pattern ((~bdatum keyword default) child ... (~bind [children #'(child ...)]))))
+
+(define-syntax-class cxx-case
+  (pattern ((~bdatum keyword case) when:cxx-expr child ... (~bind [children #'(child ...)]))))
+
+(define-syntax-class cxx-switch
+  (pattern ((~bdatum keyword switch) cond:cxx-expr child:cxx-block)))
+
 (define-syntax-class cxx-empty
   (pattern ()))
 (define-syntax-class cxx-decls
   (pattern decl:decls))
 (define-syntax-class cxx-block
-  (pattern ((~bdatum block) child ... (~bind [children #'(child ...)]))))
+  (pattern ((~bdatum keyword block) child ... (~bind [children #'(child ...)]))))
 (define-syntax-class cxx-return
   (pattern ((~bdatum return) (~bind [ret-val #'()])))
   (pattern ((~bdatum return) ret-val:cxx-expr)))
 (define-syntax-class cxx-for
   (pattern ((~bdatum for) ((~or init:decls init:expr) cond:cxx-expr update:cxx-expr) child:cxx-stmt)))
 (define-syntax-class cxx-while
-  (pattern ((~bdatum while) cond:cxx-expr child:cxx-stmt)))
+  (pattern ((~bdatum keyword while) cond:cxx-expr child:cxx-stmt)))
 (define-syntax-class cxx-if
   (pattern ((~bdatum if) cond:cxx-expr child:cxx-stmt (~bind [else #'()] [else-clause #'()])))
   (pattern ((~bdatum if) cond:cxx-expr child:cxx-stmt (~bdatum else) else-clause:cxx-stmt)))
@@ -105,6 +121,11 @@
   (pattern item:cxx-for)
   (pattern item:cxx-while)
   (pattern item:cxx-if)
+  (pattern item:cxx-break)
+  (pattern item:cxx-continue)
+  (pattern item:cxx-default)
+  (pattern item:cxx-case)
+  (pattern item:cxx-switch)
   (pattern item:cxx-@)
   (pattern item:cxx-expr))
 

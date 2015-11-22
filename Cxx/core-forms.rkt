@@ -1,6 +1,7 @@
 #lang racket
 (require 
   (for-syntax
+   racket/format
    racket/syntax
    syntax/context
    syntax/parse
@@ -34,6 +35,7 @@
              (syntax-parser
                [((~bdatum opn op) (~between term:cxx-expr min-count max-count) (... ...))
                 ;#''(term (... ...))
+                ;(display (~a (list "Meow: " #'opn #'op #'(term (... ...)) )))
                 (with-syntax
                     ([(term (... ...)) (handle-expr-list #'(term (... ...)))])
                   (no-expand #'(opn term (... ...))))]))))]))
@@ -123,24 +125,32 @@
 ; Statement definitions
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define-syntax while
-  (lambda (stx)
-    (syntax-parse stx
-      [stmt:cxx-while 
-       (with-syntax 
-           ([cond (handle-expr #'stmt.cond)]
-            [child (local-expand #'stmt.child (generate-expand-context) #f)])
-         (no-expand #'(while cond child)))])))
+(define-syntaxes (while switch)
+  (let*
+      ([gen 
+        (lambda (kw cond child)
+          (with-syntax 
+               ([kw kw]
+                [cond (handle-expr cond)]
+                [child (local-expand child (generate-expand-context) #f)])
+             (no-expand #'(kw cond child))))]
+       [while
+        (syntax-parser
+          [stmt:cxx-while (gen #'stmt.keyword #'stmt.cond #'stmt.child)])]
+       [switch
+        (syntax-parser
+          [stmt:cxx-switch (gen #'stmt.keyword #'stmt.cond #'stmt.child)])])
+    (values while switch)))
+
 
 (define-syntax for
-  (lambda (stx)
-    (let 
-        ([defs (syntax-local-make-definition-context)]
-         [context (generate-expand-context)])
-      (syntax-parse stx
+  (syntax-parser
         [stmt:cxx-for
-         (let-values
-             ([(defs init)
+         (let*-values
+             ([(defs context) 
+               (values (syntax-local-make-definition-context)
+                       (generate-expand-context))]
+              [(defs init)
                (syntax-parse #'stmt.init
                  [init:decls (def #'init context defs)]
                  [init:cxx-expr (values defs (handle-expr #'init context defs))])])
@@ -150,65 +160,87 @@
                 [update (handle-expr #'stmt.update context defs)]
                 [child (local-expand #'stmt.child context #f defs)])
              (no-expand 
-              #'(stmt.for (init cond update) child))))]))))
+              #'(stmt.for (init cond update) child))))]))
 
 (define-syntax return
-  (lambda (stx)
-    (syntax-parse stx
-      [stmt:cxx-return
-       (with-syntax
-           ([ret-val 
-             (if (stx-null? #'stmt.ret-val) 
-                 #'()
-                 (handle-expr #'(stmt.ret-val)))])
-         (no-expand #'(stmt.return . ret-val)))])))
+  (syntax-parser
+    [stmt:cxx-return
+     (with-syntax
+         ([ret-val 
+           (if (stx-null? #'stmt.ret-val) 
+               #'()
+               (handle-expr #'(stmt.ret-val)))])
+       (no-expand #'(stmt.return . ret-val)))]))
 
 (define-syntax -if
-  (lambda (stx)
-    (syntax-parse stx
-      [stmt:cxx-if 
-       (with-syntax 
-           ([cond (handle-expr #'stmt.cond)]
-            [child (local-expand #'stmt.child (generate-expand-context) #f)]
-            [else-clause 
-             (if (stx-null? #'stmt.else-clause)
-                 #'stmt.else-clause
-                 (local-expand #'stmt.else-clause (generate-expand-context) #f))])
-         (no-expand (if (stx-null? #'else-clause) #'(stmt.if cond child) #'(stmt.if cond child stmt.else else-clause))))])))
+  (syntax-parser
+    [stmt:cxx-if 
+     (with-syntax 
+         ([cond (handle-expr #'stmt.cond)]
+          [child (local-expand #'stmt.child (generate-expand-context) #f)]
+          [else-clause 
+           (if (stx-null? #'stmt.else-clause)
+               #'stmt.else-clause
+               (local-expand #'stmt.else-clause (generate-expand-context) #f))])
+       (no-expand (if (stx-null? #'else-clause) #'(stmt.if cond child) #'(stmt.if cond child stmt.else else-clause))))]))
 
-(define-syntax block
-  (let ([nest 0])
-    (lambda (stx)
-      (set! nest (+ nest 1))
-      (syntax-parse stx
+
+(define-syntaxes (block default case)
+  (let* 
+      ([child-loop
+        (lambda (children)
+          (let loop 
+            ([work (syntax->list children)]
+             [defs (syntax-local-make-definition-context)]
+             [ctx (generate-expand-context)])
+            ;(display (make-string nest #\ ))
+            ;(display (length work)) #;(display (tick)) (newline)
+            (if (null? work)
+                null
+                (let-values ([(head rest) (values (car work) (cdr work))])
+                  ;(display head) (display " ") (display rest) (newline)
+                  (let-values 
+                      ([(head defs)
+                        (syntax-parse head
+                          [vars:cxx-decls 
+                           (let-values ([(defs head) (def head ctx defs)])
+                             (values head defs))]
+                          [expr:cxx-expr
+                           (values
+                            (handle-expr head ctx defs)
+                            defs)]
+                          [impl:cxx-stmt
+                           (values 
+                            (local-expand head ctx #f defs)
+                            defs)])])
+                    (cons head (loop rest defs ctx)))))))]
+       [block
+        (syntax-parser
         [stmt:cxx-block
          (with-syntax 
              ([(stmts ...)
-               (let loop 
-                 ([work (syntax->list #'stmt.children)]
-                  [defs (syntax-local-make-definition-context)]
-                  [ctx (generate-expand-context)])
-                 ;(display (make-string nest #\ ))
-                 ;(display (length work)) #;(display (tick)) (newline)
-                 (if (null? work)
-                     null
-                     (let-values ([(head rest) (values (car work) (cdr work))])
-                       ;(display head) (display " ") (display rest) (newline)
-                       (let-values 
-                           ([(head defs)
-                             (syntax-parse head
-                               [vars:cxx-decls 
-                                (let-values ([(defs head) (def head ctx defs)])
-                                  (values head defs))]
-                               [expr:cxx-expr
-                                (values
-                                 (handle-expr head ctx defs)
-                                 defs)]
-                               [impl:cxx-stmt
-                                (values 
-                                 (local-expand head ctx #f defs)
-                                 defs)])])
-                         (cons head (loop rest defs ctx))))))])
-           (set! nest (- nest 1))
-           (no-expand #'(stmt.block stmts ...)))]))))
+               (child-loop #'stmt.children)])
+           (no-expand #'(stmt.keyword stmts ...)))])]
+       [default
+        (syntax-parser
+        [stmt:cxx-default
+         (with-syntax 
+             ([(stmts ...)
+               (child-loop #'stmt.children)])
+           (no-expand #'(stmt.keyword stmts ...)))])]
+       [case
+        (syntax-parser
+        [stmt:cxx-case
+         (with-syntax 
+             ([(stmts ...)
+               (child-loop #'stmt.children)]
+              [when (handle-expr #'stmt.when)])
+           (no-expand #'(stmt.keyword when stmts ...)))])])
+  (values
+   block
+   default
+   case)))
+
+(define-syntaxes (continue break)
+  (values no-expand no-expand))
 

@@ -224,4 +224,4 @@
     (format-id
      skel-kind 
      "@~a" 
-     (syntax-e skel-kind) #:source skel-kind #:props skel-kind)))
+     skel-kind #:source skel-kind #:props skel-kind)))

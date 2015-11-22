@@ -9,6 +9,7 @@
 
 (define make-cpp-expr 
   (syntax-parser
+    [skel:cxx-@expr (raise-user-error 'make-cpp-expr (~a (list "Unexpanded skeleton: " #'skel)))]
     [((~and unop
             (~or 
              (~datum >++)
@@ -97,6 +98,9 @@
       ";" 
       (make-cpp-expr #'for.cond) ";" (make-cpp-expr #'for.update) ")"
       (make-cpp-stmt #'for.child))]
+    [switch:cxx-switch
+     (string-append
+      "switch (" (make-cpp-expr #'switch.cond) ") " (make-cpp-stmt #'switch.child))]
     [while:cxx-while 
      (string-append
       "while (" (make-cpp-expr #'while.cond) ") " (make-cpp-stmt #'while.child))]
@@ -109,6 +113,12 @@
     [block:cxx-block 
      (string-append 
       "{\n" (string-join (stx-map make-cpp-stmt #'block.children) "") "}\n")]
+    [default:cxx-default 
+     (string-append 
+      "default:\n" (string-join (stx-map make-cpp-stmt #'default.children) "") "\n")]
+    [case:cxx-case 
+     (string-append 
+      "case " (make-cpp-expr #'case.when) ":\n" (string-join (stx-map make-cpp-stmt #'case.children) "") "\n")]
     [decl:cxx-decls
      (make-cpp-decl #'decl)]
     [skel:cxx-@
@@ -192,6 +202,7 @@
   (lambda (stx [assume-decls-stmt #t])
     (syntax-parse stx
       [vb:cxx-verbatim (syntax->datum #'vb.blob)]
+      [skel:cxx-@ (raise-user-error 'make-cpp-decl (~a (list "Unexpanded skeleton: " #'skel)))]
       [typedef:typedef-decl
        (string-append
         "typedef "
