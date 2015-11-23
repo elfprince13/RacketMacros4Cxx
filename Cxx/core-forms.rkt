@@ -110,19 +110,18 @@
 (make-cast dynamic_cast)
 (make-cast const_cast)
 
-(define-syntax call
-  (lambda (stx)
-    #;(begin
-      (display "attempting to expand call ") (newline)
-      (display stx) (newline)
-      (display (syntax-class-parse cxx-expr stx)) (newline)
-      (display (debug-parse stx (call callee:cxx-expr arg:cxx-expr ...))) (newline))
-    (syntax-parse stx
-        [(call callee:cxx-expr arg:cxx-expr ...)
-         (with-syntax 
-             ([callee (handle-expr #'callee)]
-              [(arg ...) (handle-expr-list #'(arg ...))])
-           (no-expand #'(call callee arg ...)))])))
+(define-syntaxes (call <<<>>>)
+  (let
+      ([call-op-expander
+        (syntax-parser
+          [(call-op callee:cxx-expr arg:cxx-expr ...)
+           (with-syntax 
+               ([callee (handle-expr #'callee)]
+                [(arg ...) (handle-expr-list #'(arg ...))])
+             (no-expand #'(call-op callee arg ...)))])])
+    (values
+     call-op-expander
+     call-op-expander)))
 
 
 
