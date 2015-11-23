@@ -24,7 +24,7 @@
            (string-append (substring op-str 0 2)  " "  arg-str)))]
     [((~datum <<<>>>) callee launch-bounds args ...)
      (string-append (make-cpp-expr #'callee) "<<<"
-                    (make-cpp-expr #'launch-bounds) ">>>("
+                    (make-cpp-expr (stx-car #'launch-bounds)) ">>>("
                     (string-join
                      (map make-cpp-expr (syntax->list #'(args ...))) ", ")
                     ")")]
