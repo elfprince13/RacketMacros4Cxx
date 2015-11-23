@@ -43,7 +43,7 @@
               [(ret-defs) (syntax-local-make-definition-context defs)])
            (syntax-local-bind-syntaxes
             bind-list
-            (with-syntax ()
+            (with-syntax ([storage-id storage-id])
               #'(let ([instances (mutable-set)])
                   (lambda ([stx #f])
                     (if stx
@@ -53,13 +53,16 @@
                                ([val (get-number (handle-expr (extract-expr-arg #'invoke-skel.args 0)))])
                              (set-add! instances val)
                              (with-syntax 
-                                 ([fname (format-id #'skel.name "~a~a" #'skel.name val #:source #'skel.name #:props #'skel.name)]
+                                 ([invoke (if (eq? 'storage-id 'global)
+                                              #'<<<>>>
+                                              #'call)]
+                                  [fname (format-id #'skel.name "~a~a" #'skel.name val #:source #'skel.name #:props #'skel.name)]
                                   [(arg (... ...)) 
                                    (map
                                     (lambda (i)
                                       (extract-expr-arg #'invoke-skel.args i))
                                     (range 1 (length (stx->list #'invoke-skel.args))))])
-                               #'(call fname arg (... ...))))])
+                               #'(invoke fname arg (... ...))))])
                         instances))))
             ret-defs)
            (internal-definition-context-seal ret-defs)
