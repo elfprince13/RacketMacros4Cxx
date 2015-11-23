@@ -149,7 +149,32 @@
 ; Skeleton arg parsing helpers
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-
+(define skeleton-factory
+  (lambda (expand-handler
+           #:stmt [allow-stmt #t]
+           #:expr [allow-expr #t]
+           #:no-table [allow-skip #f])
+    (let 
+        ([skeleton
+          (lambda (params-table) ; This allows the requiring module to pass through important bits of configuration, should they be necessary
+            (lambda (stx)
+              (call-with-values
+               (thunk
+                (syntax-parse stx
+                  [skel:macro-@
+                   (if allow-stmt
+                       (values #'skel.@kind #'skel.name (syntax->list #'skel.args) #'skel.child)
+                       (raise-user-error 'skeleton-factory "Parsed a skeleton statement, but this skeleton does not take a child"))]
+                  [skel:macro-@expr
+                   (if allow-expr
+                       (values #'skel.@kind #'skel.name (syntax->list #'skel.args))
+                       (raise-user-error 'skeleton-factory "Parsed a skeleton expression, but this skeleton requires a child"))]))
+               (if allow-skip
+                   expand-handler
+                   (expand-handler params-table)))))])
+      (if allow-skip
+          (skeleton (void))
+          skeleton))))
 
 (define-values (extract-id-arg extract-expr-arg extract-stmt-arg)
   (let 
@@ -159,7 +184,7 @@
             (let 
                 ([arg-stx 
                   (if pos
-                      (list-ref (syntax->list args) pos)
+                      (list-ref args pos)
                       args)])
               (extract-f arg-stx))))])
     (values 

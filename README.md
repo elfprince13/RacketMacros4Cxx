@@ -5,6 +5,6 @@ This requires building our fork of llvm / clang. See [this page](http://clang.ll
 
 Once you've done both, you can use `compile-cxx.rkt` to work with the toolchain. An example invocation is as follows:
 
-`compile-cxx.rkt -t -u -f -v -f -stdlib=libstdc++ -f --std=c++11 -S "SkelImpls" -@ Min Math.rkt -@ Repeat LexicalUnroll.rkt -@ CuFunc CuFunc.rkt -@ Reinclude Reinclude.rkt -b "llvm/build/Debug/bin/" -I /Developer/NVIDIA/CUDA-7.0/include test-params.json demos/reduce.skel`
+`compile-cxx.rkt -t -u -f -arch -f i386 -f -v -f -stdlib=libstdc++ -f --std=c++11 -f -L/Developer/NVIDIA/CUDA-7.5/lib -f -lcudart -f -lcudadevrt -S "SkelImpls" -@ Min Math.rkt -@ Repeat LexicalUnroll.rkt -@ CuFunc CuFunc.rkt -@ Reinclude Reinclude.rkt -b "llvm/build/Debug/bin/" -I /Developer/NVIDIA/CUDA-7.5/include -I includes/ test-params.json demos/reduce.skel`
 
 The `-t` flag instructs the toolchain to leave temporary files in place, so you can inspect intermediate products. This is useful for interactively debugging individual components in DrRacket.

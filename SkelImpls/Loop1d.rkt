@@ -11,34 +11,34 @@
 (provide Loop1d)
 
 (define Loop1d
-  (lambda (params-table) ; This allows the requiring module to pass through important bits of configuration, should they be necessary
-    (syntax-parser
-      [skel:macro-@
+  (skeleton-factory
+   (lambda (params-table) ; This allows the requiring module to pass through important bits of configuration, should they be necessary
+     (lambda (kind name args child)
        (let*
            ([defs (syntax-local-make-definition-context)]
             [ctx (generate-expand-context)]
             [itr-id #'j]
-            [itr-skel-kind (extract-id-arg #'skel.args 0)]
+            [itr-skel-kind (extract-id-arg args 0)]
             [itr-macro (macroize-skel-kind itr-skel-kind)]
-            [itr-init (extract-expr-arg #'skel.args 1)]
-            [itr-final (extract-expr-arg #'skel.args 2)])
+            [itr-init (extract-expr-arg args 1)]
+            [itr-final (extract-expr-arg args 2)])
          (syntax-local-bind-syntaxes
           (list itr-macro)
           (with-syntax ([itr-id itr-id])
-            #'(syntax-parser
-                [itr-skel:macro-@expr
-                 (with-syntax 
-                     ([itr-id (syntax-local-introduce #'itr-id)])
-                   #'itr-id)]))
+            #'(skeleton-factory
+               (thunk*
+                (with-syntax 
+                    ([itr-id (syntax-local-introduce #'itr-id)])
+                  #'itr-id))
+               #:no-table #t))
           defs)
          (internal-definition-context-seal defs)
          (with-syntax 
              ([itr-id itr-id]
               [itr-init itr-init]
               [itr-final itr-final]
-              [child #'skel.child])
-           #;(cuda-loop1d #'child)
+              [child child])
            (local-expand 
             #'(for ((def (() (int (!)) itr-id = (itr-init))) (< itr-id (itr-final)) (++< itr-id)) 
                 child) 
-            ctx #f defs)))])))
+            ctx #f defs)))))))

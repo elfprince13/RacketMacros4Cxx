@@ -12,6 +12,11 @@
 (define delete-temps (make-parameter #t))
 (define lang-ext (make-parameter "c"))
 
+(define make-absolute
+  (lambda (path)
+    (if (relative-path? path)
+        (normalize-path (build-path (current-directory) path))
+        path)))
 
 (define file-to-compile
   (command-line
@@ -54,11 +59,9 @@
                             (header-search-paths (cons flag (header-search-paths)))
                             (clang-flags (cons flag (clang-flags))))]
    #:args (cfg src)
-   (config-file cfg)
+   (config-file (path->string (make-absolute cfg)))
    (path->string
-    (if (relative-path? src)
-        (build-path (current-directory) src)
-        src))))
+    (make-absolute src))))
 
 
 

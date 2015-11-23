@@ -19,10 +19,11 @@
       (syntax-parse skel
         [skel:macro-@
          (let*
-             ([invoke-skel-kind (extract-id-arg #'skel.args 0)]
+             ([args (syntax->list #'skel.args)]
+              [invoke-skel-kind (extract-id-arg args 0)]
               [invoke-macro (syntax-local-introduce (macroize-skel-kind invoke-skel-kind))]
               [bind-list (list invoke-macro)]
-              [value-skel-kind (extract-id-arg #'skel.args 1)]
+              [value-skel-kind (extract-id-arg args 1)]
               [value-macro (macroize-skel-kind value-skel-kind)]
               [ret-defs (syntax-local-make-definition-context defs)])
            (syntax-local-bind-syntaxes

@@ -15,14 +15,10 @@
 (provide Min)
 
 (define Min
-  (lambda (params-table)
-    (syntax-parser
-      [skel:macro-@expr
-       (let
-           ([args
-             (stx-map
-              (compose get-number handle-expr extract-expr-arg)
-              #'skel.args)])
-         (with-syntax
-             ([val (apply min args)])
-           #'val))])))
+  (skeleton-factory
+   (lambda (params-table)
+     (lambda (kind name args)
+       (with-syntax
+           ([val 
+             (apply min (map (compose get-number handle-expr extract-expr-arg) args))])
+         #'val)))))
