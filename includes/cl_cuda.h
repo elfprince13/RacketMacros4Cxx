@@ -31,3 +31,5 @@ typedef struct cudaStream* cudaStream_t;
 int cudaConfigureCall(dim3 grid_size, dim3 block_size, unsigned shared_size = 0,
 		                      cudaStream_t stream = 0);
 
+__device__ void __syncthreads();
+
