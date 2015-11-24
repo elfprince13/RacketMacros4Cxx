@@ -60,8 +60,9 @@
      (lambda (decl id)
        (syntax-parse decl
          [var:var-decl 
-          (with-syntax ([name id])
-            #`(var.storage-classes var.type-info name #,@#'var.init-exp))]))
+          (with-syntax ([name id]
+                        [(attr ...) #'var.attributes])
+            #`(var.storage-classes var.type-info name #,@#'var.init-exp attr ...))]))
      decls ids)))
 
 (define parse-arg-names
@@ -177,14 +178,15 @@
             (lambda (stx)
               (call-with-values
                (thunk
+                ;(display "Parsing ") (display stx) (display "into ") (display expand-handler) (display " with ") (display allow-skip) (newline)
                 (syntax-parse stx
                   [skel:macro-@
                    (if allow-stmt
-                       (values #'skel.@kind #'skel.name (syntax->list #'skel.args) #'skel.child)
+                       (values #'skel.@kind (attribute skel.name) (syntax->list #'skel.args) #'skel.child)
                        (raise-user-error 'skeleton-factory "Parsed a skeleton statement, but this skeleton does not take a child"))]
                   [skel:macro-@expr
                    (if allow-expr
-                       (values #'skel.@kind #'skel.name (syntax->list #'skel.args))
+                       (values #'skel.@kind (attribute skel.name) (syntax->list #'skel.args))
                        (raise-user-error 'skeleton-factory "Parsed a skeleton expression, but this skeleton requires a child"))]))
                (if allow-skip
                    expand-handler
@@ -217,6 +219,16 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Some reusable handlers for various expansion events
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define expand-with-macros
+  (lambda (ids macro-stx body [defs (syntax-local-make-definition-context)] [ctx (generate-expand-context)])
+    ;(display "Expanding: ") (display body) (display " with macros ") (display ids) (display macro-stx) (newline)
+    (syntax-local-bind-syntaxes
+     ids
+     macro-stx
+     defs)
+    (internal-definition-context-seal defs)
+    (local-expand body ctx #f defs)))
 
 (define no-expand
   (lambda (stx)

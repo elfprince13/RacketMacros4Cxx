@@ -45,7 +45,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;
 
 (define-syntax-class cxx-@expr
-  (pattern ((~bdatum @) kind:id (name:id) args:skeleton-args)))
+  (pattern ((~bdatum @) kind:id ((~optional name:id)) args:skeleton-args)))
 
 (define-syntax-class cxx-expr
   (pattern (term ...+ (~bind [terms #'(term ...)])))
@@ -105,14 +105,14 @@
   (pattern ((~bdatum if) cond:cxx-expr child:cxx-stmt (~bind [else #'()] [else-clause #'()])))
   (pattern ((~bdatum if) cond:cxx-expr child:cxx-stmt (~bdatum else) else-clause:cxx-stmt)))
 (define-syntax-class cxx-@
-  (pattern ((~bdatum @) kind:id (name:id) args:skeleton-args child:cxx-stmt)))
+  (pattern ((~bdatum @) kind:id ((~optional name:id)) args:skeleton-args child:cxx-stmt)))
 
 ; We use this pattern internally, but should never appear in input-forms
 (define-syntax-class macro-@
-  (pattern (@kind:id (name:id) args:skeleton-args child:cxx-stmt)))
+  (pattern (@kind:id ((~optional name:id)) args:skeleton-args child:cxx-stmt)))
 
 (define-syntax-class macro-@expr
-  (pattern (@kind:id (name:id) args:skeleton-args)))
+  (pattern (@kind:id ((~optional name:id)) args:skeleton-args)))
 
 (define-syntax-class cxx-stmt
   (pattern item:cxx-empty)

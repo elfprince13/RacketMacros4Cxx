@@ -20,7 +20,10 @@
       (syntax-parse skel
         [skel:macro-@
          (let*-values
-             ([(base-name) #'skel.name]
+             ([(base-name) 
+               (if (attribute skel.name)
+                   #'skel.name
+                   (raise-user-error 'CuFunc "@CuFunc requires a name"))]
               [(args) (syntax->list #'skel.args)]
               [(skel-kinds storage-id fun-args)
                (let*-values ([(id-args stmt-args) (split-at args 3)]

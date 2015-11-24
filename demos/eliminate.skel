@@ -1,0 +1,64 @@
+/*
+__shared__ float A[32][32];
+__global__ void eliminate( float *in, float *out) {
+	int x = threadIdx.x, y = threadIdx.y, problem = blockIdx.x;
+	float a[8]; // array in registers
+	for( int j = 0; j < 8; j++ )
+		a[j] = A[8*y+j][x] = in[32*32*problem+32*(8*y+j)+x];
+
+	#pragma unroll
+	for(int i = 0; i < 32; i++ )
+	{
+		if ( y == i/8) A[i][x] = a[i%8] /= A[i][i]
+		__syncthreads();
+		float Aix = A[i][x];
+		for(int j = 0; j < 8; j++)
+			if( 8*y+j != i) A[8*y+j][x] = a[j] -= A[8*y+j][i]*Aix;
+	}
+
+	for( int j = 0; j < 8; j++)
+		out[32*32*problem + 32*(8*y+j)+x] = a[j];
+
+}
+//*/
+
+#include <cl_cuda.h>
+
+__shared__ float A[32][32];
+__global__ void eliminate( float *in, float *out) {
+	int x = threadIdx.x, y = threadIdx.y, problem = blockIdx.x;
+	@ParamContext(elimCtx)[@ F][= 1][= 32]{
+		@LetLexicalArray(unrollBuf)[@ a][float a;][= @F(j)]{
+			const int f = static_cast<int>(@F(j));
+			@Repeat(setup)[@ J][= 0][= @F(j)][= 1]{
+				const int j = static_cast<int>(@J);
+				@a[= @J][= A[f*y+j][x]= in[32*32*problem+32*(f*y+j)+x]];
+			}
+		
+			@Repeat(outer)[@ I][= 0][= 32][= 1]{
+				const int i = static_cast<int>(@I);
+				if(y == i / f)
+					A[i][x] = static_cast<float>(@a[= @Mod[= @I][= @F(j)]][= static_cast<float>(@a[= @Mod[= @I][= @F(j)]]) / A[i][i]]);
+				__syncthreads();
+				float Aix = A[i][x];
+				@Repeat(inner)[@ J][= 0][= @F(j)][= 1]{
+					const int j = static_cast<int>(@J);
+					if(f*y+j != i)
+						A[f*y+j][x] = static_cast<float>(@a[= @J][= static_cast<float>(@a[= @J]) - A[f*y+j][i]*Aix]);
+				}
+			}
+			
+			@Repeat(setup)[@ J][= 0][= @F(j)][= 1]{
+				const int j = static_cast<int>(@J);
+				out[32*32*problem + 32*(f*y+j)+x] =  static_cast<float>(@a[= @J]);
+			}
+
+		}
+
+	}
+}
+
+int main() {
+	float *d_in, *d_out;
+	eliminate<<<128,128>>>(d_in,d_out);
+}

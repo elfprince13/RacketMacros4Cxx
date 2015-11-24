@@ -8,15 +8,14 @@
 
 @CuFunc(warpReduce)[@ WReduce][@ LogSize][@ device][volatile int *sdata;][unsigned int tid;]{
 	volatile int* const tdata = sdata+tid;
-	@Repeat(unrollWarp)[@ I][= @Min(fromCt)[= 6][= @LogSize(unrollCt)]][= 0][= -1]
-			tdata[0] += tdata[(1 << (static_cast<int>(@I(iter)) - 1))];
+	@Repeat(unrollWarp)[@ I][= @Min[= 6][= @LogSize]][= 0][= -1]
+			tdata[0] += tdata[(1 << (static_cast<int>(@I) - 1))];
 	
 }
 
 @CuFunc(reduce)[@ Reduce][@ LogSize][@ global][int *g_idata;][int *g_odata;][unsigned int n;]{
 	int __shared__ extern *sdata;
-//uint3 __device__ extern const threadIdx;
-	const int blockSize = 1 << static_cast<int>(@LogSize(oursize));
+	const int blockSize = 1 << static_cast<int>(@LogSize);
 	unsigned int tid = threadIdx.x;
 	unsigned int i = blockIdx.x * (blockSize * 2) + tid;
 	unsigned int gridSize = blockSize * 2 * gridDim.x;
@@ -26,14 +25,14 @@
 		i += gridSize;
 	}
 
-	@Repeat(blockReduce)[@ I][= @Min(fromCt)[= 9][= @LogSize(unrollCt)]][= 6][= -1] {
-		const int sizeHere = 1 << (static_cast<int>(@I(iter)) - 1);
+	@Repeat(blockReduce)[@ I][= @Min[= 9][= @LogSize]][= 6][= -1] {
+		const int sizeHere = 1 << (static_cast<int>(@I) - 1);
 		if(tid < sizeHere) sdata[tid] += sdata[tid + sizeHere];
 		__syncthreads();
 	}
 
 	if(tid < 32){
-		@WReduce(WReduce512)[= @LogSize(oursize)][= sdata][= tid];
+		@WReduce(WReduce)[= @LogSize][= sdata][= tid];
 	}
 	if(tid == 0) g_odata[blockIdx.x] = sdata[0];
 
@@ -47,8 +46,8 @@ int main(int argc, char ** argv) {
 	int *d_idata, *d_odata;
 	switch(blocksize){
 	@Repeat(unrollSwitch)[@ I][= 9][= 0][= -1]{
-		case @I(caseN):
-			@Reduce(reduceN)[= @I(caseN)][= (dimGrid, dimBlock, smemSize)][= d_idata][= d_odata][= 0];
+		case @I:
+			@Reduce(reduceN)[= @I][= (dimGrid, dimBlock, smemSize)][= d_idata][= d_odata][= 0]; break;
 	}
 	}
 	return 1;

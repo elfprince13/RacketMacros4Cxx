@@ -33,12 +33,18 @@
                    [instances (make-hasheq)])
                 (lambda ([stx #f])
                   (if stx
-                      (syntax-parse stx 
-                        [invoke-skel:macro-@
-                         (hash-set! instances (syntax->datum #'invoke-skel.name) count)
-                         ;(display instances) (newline)
-                         (set! count (+ count 1))
-                         #'(call invoke-skel.name)])
+                      ((skeleton-factory
+                        (lambda (kind name args [child #'()])
+                          (let-values 
+                              ([(sym-invoke sym-name)
+                                (apply values (map syntax->datum (list kind name)))])
+                            (unless name
+                              (raise-user-error sym-invoke (~a (list sym-invoke "requires a name"))))
+                            (hash-set! instances sym-name count)
+                            (set! count (+ count 1))
+                            (with-syntax ([name name])
+                              #'(call name))))
+                        #:no-table #t) stx)
                       instances)))
                   ret-defs)
            (internal-definition-context-seal ret-defs)

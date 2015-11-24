@@ -47,9 +47,16 @@
          (if (syntax-local-value #'skel-macro (thunk #f) in-defs)
              (let
                  ([expandable
-                   (if (attribute skel.child)
-                       #'(skel-macro (skel.name) skel.args skel.child)
-                       #'(skel-macro (skel.name) skel.args))]
+                   (with-syntax
+                       ([(child-term ...) 
+                         (if (attribute skel.child)
+                             #'(skel.child)
+                             #'())]
+                        [name-term
+                         (if (attribute skel.name)
+                             #'(skel.name)
+                             #'())])
+                     #'(skel-macro name-term skel.args child-term ...))]
                   [macro (syntax-local-value #'skel-macro #f in-defs)])
                (if in-defs
                    (macro expandable in-defs)
