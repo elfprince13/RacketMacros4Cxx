@@ -50,22 +50,30 @@
 (define compose-tiles 
   (lambda (outer inner)
     (tile
-     (with-syntax ((outer-counter (tile-counter outer))
-                  (inner-counter (tile-counter inner))
-                  (inner-bound (tile-upper-bound inner)))
-                 #'((+ (* outer-counter inner-bound) inner-counter)))
-     (with-syntax ((outer-bound (tile-upper-bound outer))
-                  (inner-bound (tile-upper-bound inner)))
-                 #'((* outer-bound inner-bound)))
+     (with-syntax 
+         ((outer-counter (tile-counter outer))
+          (inner-counter (tile-counter inner))
+          (inner-bound (tile-upper-bound inner)))
+       #'((+ (* outer-counter inner-bound) inner-counter)))
+     (with-syntax 
+         ((outer-bound (tile-upper-bound outer))
+          (inner-bound (tile-upper-bound inner)))
+       #'((* outer-bound inner-bound)))
      (lambda (body) 
        ((tile-body-gen outer) ((tile-body-gen inner) body))))))
 
 (define compose-tile-permutation ; accepts in order: outer -> inner
   (lambda (tile-list tile-permutation)
-    (letrec ((tile-array (list->array tile-list))
-             (permuted-array (array-slice-ref tile-array (list (reverse tile-permutation)))) ; tricky business: reversing the permutation allows us to foldl instead of foldr
-             (permuted-list (array->list permuted-array)))
-      (foldl compose-tiles (car permuted-list) (cdr permuted-list)))))
+    (letrec 
+        ((tile-array (list->array tile-list))
+         (permuted-array 
+          (array-slice-ref 
+           tile-array 
+           (list (reverse tile-permutation))))
+         (permuted-list (array->list permuted-array)))
+      (foldl compose-tiles 
+             (car permuted-list) 
+             (cdr permuted-list)))))
 
 (define make-permutation-macro-from-tile-constructors
   (lambda (tile-constructors)
