@@ -5,7 +5,7 @@
 ; Cuda here
 ;;;;;;;;;;;;;;;;;;
 
-#;(translation-unit
+(translation-unit
  
  #;(def 
      (() union 
@@ -65,7 +65,7 @@
     (@ Repeat (reduce_warp) ([@ I] [= (@ Min (blocks) ([= 8][= 10][= 6]))] [= 0] [= -2])
        (block
         (def (() (const int (!)) i = (<< 1 ((- 5 (reinterpret_cast (int (!)) (@ I (reduce_idx) ())))))))
-        (= (* selm) (* ((+ selm i)))))))))
+        (= (|[]| selm 0) (|[]| selm i)))))))
 
 (translation-unit
  (skeletons:
@@ -80,13 +80,13 @@
     (def (() (int (!)) ret))
     (if (== ((% argc 4)) 0) 
         (block
-         (@ Loop1d (test_loop) ([@ I] [= (+ 0 0)] [= (+ 0 argc)])
+         (@ Loop1d (test_loop1) ([@ I] [= (+ 0 0)] [= (+ 0 argc)])
             (block
              (def (() (int (!)) j1))
-             (@ Loop1d (test_loop) ([@ J] [= 0] [= argc])
+             (@ Loop1d (test_loop2) ([@ J] [= 0] [= argc])
                 (block
-                 (def (() (const int (!)) j = (reinterpret_cast (int (!)) (@ J (test_iterator) ()))))
-                 (= j1 (@ I (test_iterator) ()))
+                 (def (() (const int (!)) j = (reinterpret_cast (int (!)) (@ J (test_iterator3) ()))))
+                 (= j1 (@ I (test_iterator4) ()))
                  (if (> (call strlen (* ((+ argv j1)))) 0)
                      (>++ ((* ((+ argv j1))))))
                  (call puts (* ((+ argv j1))))

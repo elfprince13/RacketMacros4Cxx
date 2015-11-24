@@ -186,7 +186,7 @@
                                        (lambda (parse-node stx-l)
                                          (with-syntax
                                              ([(seq ...) (stx-map parse-node stx-l)])
-                                           #'(seq ...)))])
+                                           (syntax-property #'(seq ...) 'paren-shape (syntax-property stx-l 'paren-shape))))])
                                    ((walk-decls leaf-f decl-f iter-f) expanded)))]) ; walk again to replace all the introduced ids
                          (emit-local-step expanded expanded-safe #:id #'walk-expr-safe-ids)
                          (make-cpp-tu expanded-safe))) 

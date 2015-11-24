@@ -21,7 +21,7 @@
         [skel:macro-@
          (let*-values
              ([(base-name) #'skel.name]
-              [(args) (stx->list #'skel.args)]
+              [(args) (syntax->list #'skel.args)]
               [(skel-kinds storage-id fun-args)
                (let*-values ([(id-args stmt-args) (split-at args 3)]
                              [(skel-args storage-args) (split-at (map extract-id-arg id-args) 2)])
@@ -47,22 +47,20 @@
               #'(let ([instances (mutable-set)])
                   (lambda ([stx #f])
                     (if stx
-                        (syntax-parse stx 
-                          [invoke-skel:macro-@
-                           (let 
-                               ([val (get-number (handle-expr (extract-expr-arg #'invoke-skel.args 0)))])
-                             (set-add! instances val)
-                             (with-syntax 
-                                 ([invoke (if (eq? 'storage-id 'global)
-                                              #'<<<>>>
-                                              #'call)]
-                                  [fname (format-id #'skel.name "~a~a" #'skel.name val #:source #'skel.name #:props #'skel.name)]
-                                  [(arg (... ...)) 
-                                   (map
-                                    (lambda (i)
-                                      (extract-expr-arg #'invoke-skel.args i))
-                                    (range 1 (length (stx->list #'invoke-skel.args))))])
-                               #'(invoke fname arg (... ...))))])
+                        ((skeleton-factory
+                          (lambda (kind name args [child #'()]) ; child should pretty much never be set
+                            (let  ; but we might be given it empty anyway, because expr;
+                                ([val (get-number (handle-expr (extract-expr-arg args 0)))])
+                              (set-add! instances val)
+                              (with-syntax 
+                                  ([invoke (if (eq? 'storage-id 'global)
+                                               #'<<<>>>
+                                               #'call)]
+                                   [fname (format-id #'skel.name "~a~a" #'skel.name val #:source #'skel.name #:props #'skel.name)]
+                                   [(arg (... ...)) 
+                                    (map extract-expr-arg (cdr args))])
+                                #'(invoke fname arg (... ...)))))
+                          #:no-table #t) stx)
                         instances))))
             ret-defs)
            (internal-definition-context-seal ret-defs)

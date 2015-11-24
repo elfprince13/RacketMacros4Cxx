@@ -144,6 +144,23 @@
          (string-append " " (~r (- now pv-time) #:precision 2)))))))
 
 
+(define ~a/shape
+  (syntax-parser
+    [(~and lst (term ...))
+     (let-values
+         ([(l r)
+             (cond
+               [(syntax-property #'lst 'paren-shape) 
+                => (lambda (shape)
+                     (values (string shape) 
+                             (string (integer->char (+ 2 (char->integer shape))))))]
+               [else (values "(" ")")])]
+          [(contents) (string-join (stx-map ~a/shape #'lst) " ")])
+       (string-append
+        l
+        contents
+        r))]
+    [else (~a (syntax->datum #'else))]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Skeleton arg parsing helpers

@@ -41,6 +41,10 @@
              (~datum const_cast))) cast-type:cxx-type cast-expr)
      (string-append
       (make-cpp-expr #'cast-name) "<" (synth-type-text #'cast-type "") ">(" (make-cpp-expr #'cast-expr) ")" )]
+    [((~datum |[]|) array:cxx-expr index:cxx-expr)
+     (string-append 
+      (make-cpp-expr #'array)
+      "[" (make-cpp-expr #'index) "]") ]
     [((~datum c-cast) cast-type:cxx-type cast-expr) 
      (string-append 
       "(" (synth-type-text #'cast-type "") ")" (make-cpp-expr #'cast-expr))]
@@ -178,22 +182,20 @@
              (string-join 
               (stx-map 
                (lambda (stx) 
-                 (~a (syntax->datum stx))) pref-stx)))]
+                 (~a/shape stx)) pref-stx)))]
           [synth-place 
            (lambda (place-stx)
              (if (stx-null? place-stx)
                  placeholder-text
                  (string-append
-                  "(" (string-join (map ~a (syntax->datum (stx-car place-stx))) " ")
+                  "(" (string-join (stx-map ~a/shape (stx-car place-stx)) " ")
                   " "
                   placeholder-text " "
-                  (string-join (map ~a (syntax->datum (stx-cdr place-stx)))) ")")))]
+                  (string-join (stx-map ~a/shape (stx-cdr place-stx))) ")")))]
           [synth-suf 
            (lambda (suf-stx)
              (string-join 
-              (stx-map 
-               (lambda (stx) 
-                 (~a (syntax->datum stx))) suf-stx)))]
+              (stx-map ~a/shape suf-stx)))]
           [synth-all
            (lambda (pref-stx place-stx suf-stx)
              (string-append
