@@ -82,7 +82,7 @@
                           (map
                            (lambda (i)
                              (with-syntax*
-                                 ([v-name (format-id #'var.name "~a~a" #'var.name i #:source #'var.name #:props #'var.name)]
+                                 ([v-name (format-id #f "~a~a" #'var.name i #:source #'var.name #:props #'var.name)]
                                   [var (car (subs-decl-ids (list #'var) (list #'v-name)))])
                                (cons #'var #'v-name)))
                            (range count))])
@@ -102,7 +102,7 @@
                                           (cdr args))]
                              [(asgn) (if (null? args) #f (extract-expr-arg (car args)))])
                         (with-syntax
-                            ([var (list-ref names idx)])
+                            ([var (syntax-local-introduce (list-ref names idx))])
                           (if asgn
                               (with-syntax ([asgn asgn]) #'(= var asgn))
                               #'var))))
