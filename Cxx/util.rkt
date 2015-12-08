@@ -195,7 +195,7 @@
           (skeleton (void))
           skeleton))))
 
-(define-values (extract-id-arg extract-expr-arg extract-stmt-arg)
+(define-values (extract-id-arg extract-expr-arg extract-stmt-arg as-values)
   (let 
       ([make-extractor
         (lambda (extract-f)
@@ -212,7 +212,11 @@
      (make-extractor
       (syntax-parser [((~datum =) e:cxx-expr) #'e]))
      (make-extractor
-      (syntax-parser [(s:cxx-stmt) #'s])))))
+      (syntax-parser [(s:cxx-stmt) #'s]))
+     (lambda (extr-f args)
+       (apply values (if (list? extr-f)
+                         (map (lambda (f a) (f a)) extr-f args)
+                         (map extr-f args)))))))
 
 
 

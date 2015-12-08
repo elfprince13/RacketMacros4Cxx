@@ -1,9 +1,7 @@
 #lang racket
 (require 
   racket/syntax
-  syntax/context
-  syntax/parse
-  syntax/stx)
+  syntax/parse)
 (require
   (for-template Cxx/core-forms)
   Cxx/syntax-classes
@@ -23,7 +21,7 @@
            (lambda (kind name args child)
              (let*-values
                  ([(rep-macro) (macro-arg (car args))]
-                  [(from to by) (apply values (stx-map value-arg (cdr args)))])
+                  [(from to by) (as-values value-arg (cdr args))])
                (no-expand 
                 (with-syntax 
                     ([(child ...)
@@ -45,8 +43,7 @@
                  (raise-user-error '@ParamContext (~a (list "This skeleton only takes 3 arguments, received" args))))
                (let*-values
                    ([(pm lb ub)
-                     (apply values
-                            (map (lambda (f a) (f a)) (list macro-arg value-arg value-arg) args))])
+                     (as-values (list macro-arg value-arg value-arg) args)])
                  (expand-with-macros
                   (list pm)
                   (with-syntax ([lb lb] [ub ub] [pc-params pc-params])
