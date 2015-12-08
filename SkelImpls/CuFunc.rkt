@@ -40,7 +40,7 @@
                    stmt-args)))]
               [(invoke-skel-kind size-skel-kind) (apply values skel-kinds)]
               [(invoke-macro size-macro) 
-               (apply values (map macroize-skel-kind skel-kinds))]
+               (as-values macroize skel-kinds)]
               [(invoke-macro) (syntax-local-introduce invoke-macro)]
               [(bind-list) (list invoke-macro)]
               [(ret-defs) (syntax-local-make-definition-context defs)])

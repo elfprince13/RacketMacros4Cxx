@@ -21,10 +21,10 @@
          (let*
              ([args (syntax->list #'skel.args)]
               [invoke-skel-kind (extract-id-arg args 0)]
-              [invoke-macro (syntax-local-introduce (macroize-skel-kind invoke-skel-kind))]
+              [invoke-macro (syntax-local-introduce (macroize invoke-skel-kind))]
               [bind-list (list invoke-macro)]
               [value-skel-kind (extract-id-arg args 1)]
-              [value-macro (macroize-skel-kind value-skel-kind)]
+              [value-macro (macroize value-skel-kind)]
               [ret-defs (syntax-local-make-definition-context defs)])
            (syntax-local-bind-syntaxes
             bind-list

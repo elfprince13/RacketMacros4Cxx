@@ -3,7 +3,6 @@
 (require 
   (for-syntax 
    macro-debugger/emit
-   racket/format
    racket/function
    racket/dict
    racket/set
@@ -42,7 +41,7 @@
              (hash-ref
               InitSkelIds
               (syntax->datum #'skel.kind) ; If it's a top-level thingy, we shouldn't have any problem looking it up. 
-              (lambda () (macroize-skel-kind #'skel.kind)))]) ; If not, we shouldn't have any problem with the marks
+              (lambda () (macroize #'skel.kind)))]) ; If not, we shouldn't have any problem with the marks
          (emit-local-step #'skel.kind #'skel-macro #:id #'macroize-skel-kind)
          (if (syntax-local-value #'skel-macro (thunk #f) in-defs)
              (let
@@ -91,7 +90,7 @@
                   (jsonpath-to-table (string->path (syntax->datum #'unit.configPath)))
                   #hasheq())])
          (syntax-local-bind-syntaxes 
-          (map macroize-skel-kind skel-ids)
+          (map macroize skel-ids)
           (with-syntax
               ([(skel-defs ...) 
                 (map
@@ -103,7 +102,7 @@
           top-level-defs)
          (internal-definition-context-seal top-level-defs)
          (for ([skel-id skel-ids])
-            (hash-set! InitSkelIds (syntax->datum skel-id) (internal-definition-context-apply/loc top-level-defs (macroize-skel-kind skel-id))))
+            (hash-set! InitSkelIds (syntax->datum skel-id) (internal-definition-context-apply/loc top-level-defs (macroize skel-id))))
          stx
          (with-syntax 
              ([((declaration ...) ...)

@@ -13,7 +13,7 @@
   (let*-values
       ([(macro-arg value-arg) 
                      (values
-                      (compose macroize-skel-kind extract-id-arg)
+                      (compose macroize extract-id-arg)
                       (compose get-number handle-expr extract-expr-arg))]
        [(repeat-handle)
         (skeleton-factory
@@ -68,7 +68,7 @@
             (lambda (kind name args child)
               (let*-values 
                   ([(access-sk args) (values (extract-id-arg (car args)) (cdr args))]
-                   [(access-m) (macroize-skel-kind access-sk)]
+                   [(access-m) (macroize access-sk)]
                    [(base-def count) (values (extract-stmt-arg (car args)) (value-arg (cadr args)))]
                    [(all-defs all-vars)
                     (syntax-parse base-def

@@ -10,7 +10,7 @@
    (lambda (params-table) ; This allows the requiring module to pass through important bits of configuration, should they be necessary
      (lambda (kind name args child)
        (let*-values ([(itr-id) #'j]
-                     [(itr-macro) (macroize-skel-kind (extract-id-arg (car args)))]
+                     [(itr-macro) (macroize (extract-id-arg (car args)))]
                      [(itr-init itr-final) (as-values extract-expr-arg (cdr args))])
          (expand-with-macros
           (list itr-macro)
